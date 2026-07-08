@@ -28,15 +28,43 @@ No `deploy` image — that job kind runs `helm upgrade --install` directly
 since they reference it via `--build-arg BASE_IMAGE=<tag>`:
 
 ```bash
-docker build -f base/Dockerfile -t <registry>/yggdrasil-agent-base:<tag> .
-docker build -f spec_grill/Dockerfile --build-arg BASE_IMAGE=<registry>/yggdrasil-agent-base:<tag> \
-  -t <registry>/yggdrasil-agent-spec-grill:<tag> .
+docker build -f base/Dockerfile -t <registry>/base:<tag> .
+docker build -f spec_grill/Dockerfile --build-arg BASE_IMAGE=<registry>/base:<tag> \
+  -t <registry>/spec_grill:<tag> .
 # same pattern for feature_build/Dockerfile and test_run/Dockerfile
 ```
 
-CI/release process (build, tag, push to the ADR 003 registry, and how the
-Orchestrator's `SPEC_GRILL_IMAGE`/`FEATURE_BUILD_IMAGE`/`TEST_RUN_IMAGE` env
-vars get bumped) is not yet implemented — see ADR 004's follow-ups.
+## CI and registry
+
+`.github/workflows/build-images.yml` builds all four images (in the order
+above) on every push to `main` and on PRs (build-only, no push). Images are
+tagged both `sha-<8-char-sha>` (immutable) and `latest`.
+
+**Registry: GitHub Container Registry, not a per-install registry.** ADR 003's
+bundled `registry:2` (self-hosted) and Yggdrasil-operated registry (managed)
+are for **per-project app images** — built from a project's own Dockerfile,
+living inside that install's own cluster/namespace. `agent-images` isn't
+per-project; it's one shared, suite-maintained artifact every deployment
+pulls the same version of, and centralized GitHub Actions CI has no network
+path into a self-hosted customer's private cluster anyway. So this repo
+publishes to `ghcr.io/yggdrasil-hq/yggdrasil-agent-images/{base,spec_grill,
+feature_build,test_run}` instead, authenticated via `GITHUB_TOKEN` (no extra
+secret) — every Orchestrator, self-hosted or managed, pulls directly from
+there, bypassing its own local/per-install registry entirely for this
+artifact.
+
+The Orchestrator's `SPEC_GRILL_IMAGE`/`FEATURE_BUILD_IMAGE`/`TEST_RUN_IMAGE`
+env vars are still bumped by hand (see `../../orchestrator/.env.example`) —
+CI publishes new tags but nothing yet updates those env vars automatically.
+
+### Open follow-up: registry auth for self-hosted installs
+
+GHCR packages default to **private** on first push. A self-hosted
+Orchestrator therefore needs a `read:packages`-scoped credential (a PAT or
+GitHub App token) wired in as a Kubernetes image pull secret to actually pull
+these images — that provisioning step (and whether to instead make the
+packages public, given they contain no project-specific secrets, only the
+shared agent runtime) is not yet designed.
 
 ## Why per-kind images instead of one shared image
 

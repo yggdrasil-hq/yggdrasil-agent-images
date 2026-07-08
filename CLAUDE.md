@@ -59,7 +59,10 @@ Full index: `docs/README.md`.
 - One concern per doc; route, don't dump. (See the meta repo's
   `../docs/conventions/documentation-guide.md`.)
 - Suite-wide facts live in the meta repo — link up, don't copy.
-- **Status:** Dockerfiles, skills, and the shared extension are scaffolded
-  (untested — no CI build has run against them yet). CI/release process
-  (build, tag, push to the ADR 003 registry) is not yet implemented. See
+- **Status:** Dockerfiles, skills, and the shared extension are scaffolded and
+  build cleanly (verified with local `docker build`). CI
+  (`.github/workflows/build-images.yml`) builds and pushes all four images to
+  `ghcr.io/yggdrasil-hq/yggdrasil-agent-images/*` on every push to `main` —
+  see `docs/concepts/images.md`. Registry auth for self-hosted installs (GHCR
+  packages default to private) is an open follow-up. See
   `../docs/adr/004-agent-base-containers.md`.
