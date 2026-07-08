@@ -59,6 +59,7 @@ Full index: `docs/README.md`.
 - One concern per doc; route, don't dump. (See the meta repo's
   `../docs/conventions/documentation-guide.md`.)
 - Suite-wide facts live in the meta repo — link up, don't copy.
-- **Status:** scaffolding only. Dockerfiles, skills, and the shared extension
-  are not yet implemented — see `../docs/adr/004-agent-base-containers.md`
-  for the accepted design to build against.
+- **Status:** Dockerfiles, skills, and the shared extension are scaffolded
+  (untested — no CI build has run against them yet). CI/release process
+  (build, tag, push to the ADR 003 registry) is not yet implemented. See
+  `../docs/adr/004-agent-base-containers.md`.

@@ -15,10 +15,10 @@ before reading the body.
 ## concepts/
 | Doc | Read this when |
 |-----|----------------|
-| `concepts/images.md` | You need the common-base + per-job-kind Dockerfile layout. (not yet written) |
-| `concepts/skills.md` | You're writing or adapting a Pi skill for a job kind. (not yet written) |
-| `concepts/contract-extension.md` | You're working on the shared `yggdrasil-contract` extension. (not yet written) |
-| `concepts/model-config.md` | You're touching the `models.json` template or env-var contract. (not yet written) |
+| [`concepts/images.md`](concepts/images.md) | You need the common-base + per-job-kind Dockerfile layout. |
+| [`concepts/skills.md`](concepts/skills.md) | You're writing or adapting a Pi skill for a job kind. |
+| [`concepts/contract-extension.md`](concepts/contract-extension.md) | You're working on the shared `yggdrasil-contract` extension. |
+| [`concepts/model-config.md`](concepts/model-config.md) | You're touching the `models.json` template or env-var contract. |
 
 ## conventions/
 | Doc | Read this when |

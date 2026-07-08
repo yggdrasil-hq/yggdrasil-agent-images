@@ -6,26 +6,21 @@
 `../../../docs/overview/architecture.md` in the meta repo, or the design
 rationale in `../../../docs/adr/004-agent-base-containers.md`.
 
-> TODO: fill in once the repo is scaffolded with real Dockerfiles/skills.
+## Directory layout and build order
 
-## Directory layout (planned, per ADR 004)
+See `../concepts/images.md` — don't duplicate here.
 
-```
-agent-images/
-├── base/               common layer: Pi install + yggdrasil-contract extension
-├── spec_grill/          Dockerfile + skills/grill-with-docs/
-├── feature_build/        Dockerfile + skills/implement/ + Playwright
-├── test_run/             Dockerfile + skills/run-tests/ + Playwright
-└── models.json.template  env-var-interpolated model config
-```
+## Skills and the shared extension
 
-## Key modules / boundaries
+See `../concepts/skills.md` and `../concepts/contract-extension.md`.
 
-> TODO — once the `yggdrasil-contract` extension exists, document its tool
-> surface here (or in `docs/concepts/contract-extension.md`) rather than in
-> the meta repo.
+## Model config
+
+See `../concepts/model-config.md`.
 
 ## External dependencies
 
 - Pi (pi.dev, `@earendil-works/pi-coding-agent`)
 - Playwright CLI (`feature_build`, `test_run` images only)
+- GitHub CLI (`gh`, `feature_build` only — the `implement` skill opens its own
+  draft PR)
