@@ -43,10 +43,22 @@ decisions, exactly as `grill-with-docs` does against this meta repo's own
 5. If a question is answerable by reading the codebase instead of asking,
    read the codebase.
 
+## Read-only, always
+
+This is a read-only exploration and interview session, full stop — not just
+for `docs/adr/`/`docs/CONTEXT.md`. **Never modify anything in the cloned
+repo(s):** no file writes, no `git init`/`add`/`commit`/`push`, no changing
+`git remote`, nothing. The GitHub credential available in this container is
+scoped to read-only access (ADR 005) — even if it weren't, this skill's job
+is to *propose* the plan, not enact it. If a repo can't be reached, or looks
+wrong, or seems to need something scaffolded before you can proceed: **ask
+the user via `ask_user`** (or note it in the ADR's Context section) — don't
+work around it yourself (e.g. by initializing a fresh repo, or attempting to
+clone/push with different credentials).
+
 ## Finishing
 
-- **Do not** write directly to `docs/adr/` or `docs/CONTEXT.md` in the target
-  repo. Nothing is committed to git during `spec_grill` — the ADR only gets
+- Nothing is committed to git during `spec_grill` — the ADR only gets
   committed later, during `feature_build` (see ADR 002, ADR 004).
 - When every open question is resolved, call `submit_adr` **exactly once**
   with the complete ADR (Context / Decision / Consequences / Alternatives
