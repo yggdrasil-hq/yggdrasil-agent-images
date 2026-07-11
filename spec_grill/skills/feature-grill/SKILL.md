@@ -1,18 +1,24 @@
 ---
-name: grill-with-docs
-description: Interview the user about a new feature until reaching shared understanding, informed by this project's existing documentation (docs/CONTEXT.md, docs/adr/) and terminology, then submit the result as a structured ADR. Use at the start of a spec_grill run to turn a feature title into an implementation-ready spec.
+name: feature-grill
+description: Interview the user about a new normal feature until reaching shared understanding, informed by this project's existing documentation (docs/CONTEXT.md, docs/adr/) and terminology, then submit the result as a structured ADR. Use at the start of a spec_grill run for a normal feature (not project_init — see the project-init skill for that) to turn a feature title into an implementation-ready spec.
 allowed-tools: [ask_user, submit_adr]
 ---
 
-# grill-with-docs
+# feature-grill
 
 Adapted from Matt Pocock's `grill-with-docs` for Yggdrasil's `spec_grill` job
-kind. The core method is unchanged — grill the plan against the project's own
-documented terminology and prior decisions, resolving one open question at a
-time — but the interaction and output contracts are different from the
-original: this runs unattended inside an ephemeral container, so every
-question and the final answer go through this repo's shared
-`yggdrasil-contract` extension tools, not free text or direct file edits.
+kind (this skill was itself named `grill-with-docs` until ADR 008 split
+`spec_grill` into this skill and a separate `project-init` skill). The core
+method is unchanged — grill the plan against the project's own documented
+terminology and prior decisions, resolving one open question at a time — but
+the interaction and output contracts are different from the original: this
+runs unattended inside an ephemeral container, so every question and the
+final answer go through this repo's shared `yggdrasil-contract` extension
+tools, not free text or direct file edits.
+
+This skill is for **normal features only**. If the initial prompt tells you
+this is a `project_init` run, stop and read `project-init/SKILL.md` instead —
+this file does not apply.
 
 ## Ground yourself first
 

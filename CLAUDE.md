@@ -45,7 +45,7 @@ just resolves an image tag per job kind (see `SPEC_GRILL_IMAGE` /
 |--------------------------------------------------|------------------------------------|
 | Orientation / how it's built                     | `docs/overview/architecture.md`   |
 | Image layout (common base + per-job-kind images) | `docs/concepts/images.md`         |
-| Skills (grill-with-docs, implement, run-tests)   | `docs/concepts/skills.md`         |
+| Skills (project-init, feature-grill, implement, run-tests) | `docs/concepts/skills.md` |
 | The shared `yggdrasil-contract` extension        | `docs/concepts/contract-extension.md` |
 | Model config template (`models.json`)            | `docs/concepts/model-config.md`   |
 | Local dev / building images                      | `docs/overview/setup.md`          |

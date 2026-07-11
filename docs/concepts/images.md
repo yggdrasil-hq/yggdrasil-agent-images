@@ -14,7 +14,7 @@ agent-images/
 │   └── entrypoint.sh
 ├── extensions/yggdrasil-contract/   the shared extension (see contract-extension.md)
 ├── models.json.template
-├── spec_grill/Dockerfile        FROM base — grill-with-docs skill only, no Playwright
+├── spec_grill/Dockerfile        FROM base — project-init + feature-grill skills, no Playwright
 ├── feature_build/Dockerfile     FROM base — implement skill + Playwright + gh CLI
 └── test_run/Dockerfile          FROM base — run-tests skill + Playwright
 ```

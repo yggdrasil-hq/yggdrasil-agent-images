@@ -4,20 +4,30 @@
 **Skip if:** you need the shared extension's tools instead — see
 `contract-extension.md`.
 
-## One skill per job kind (ADR 004)
+## Skills per job kind (ADR 004, `spec_grill` split by ADR 008)
 
 | Job kind | Skill | Location |
 |----------|-------|----------|
-| `spec_grill` | `grill-with-docs` | `spec_grill/skills/grill-with-docs/SKILL.md` |
+| `spec_grill` — a project's very first run | `project-init` | `spec_grill/skills/project-init/SKILL.md` |
+| `spec_grill` — every other feature | `feature-grill` | `spec_grill/skills/feature-grill/SKILL.md` |
 | `feature_build` | `implement` | `feature_build/skills/implement/SKILL.md` |
 | `test_run` | `run-tests` | `test_run/skills/run-tests/SKILL.md` |
 
+`spec_grill` is the one job kind with two skills installed side by side
+(ADR 008 items 2-5): the Orchestrator's initial prompt names exactly one of
+them per run (`buildInitialPrompt` branches on `FeatureSpec.FeatureType`,
+`orchestrator/internal/worker/specgrill.go`) — never left to the model to
+infer which applies from the feature title. `project-init` also carries a
+bundled reference doc (`spec_grill/skills/project-init/reference/`) it
+grills the target repo against — see `docs/adr/008-project-init-grill-and-submodule-repos.md`
+in the meta repo.
+
 Each `SKILL.md` restricts its visible tools via the `allowed-tools`
 frontmatter field, scoped to the subset of `yggdrasil-contract`'s tools that
-job kind actually needs — e.g. `grill-with-docs` only sees `ask_user` and
+job kind actually needs — e.g. both spec_grill skills only see `ask_user` and
 `submit_adr`, never `submit_build_result`.
 
-## Conventions all three skills share
+## Conventions all skills share
 
 - **Never call a tool outside the shared extension for turn/completion
   signaling.** Plain text is not a supported way to ask the user something or
