@@ -14,13 +14,22 @@ envsubst < /root/.pi/agent/models.json.template > /root/.pi/agent/models.json
 # feature_build has run once, so the primary clones with --recurse-submodules
 # and picks them up for free. TARGET_REPOS (JSON-encoded FeatureSpecRepo list)
 # and GITHUB_TOKEN are only set for job kinds that need repos on disk
-# (spec_grill today) — skip entirely if absent so this stays a no-op for any
-# job kind that doesn't set them. A clone failure exits non-zero here (via
-# `set -e` + node's own process.exit(1) on error), failing the job before
-# Pi starts rather than handing an agent an empty/wrong workspace and
-# letting it improvise its way to a wrong conclusion (verified against a
-# real stuck run: an empty workspace led the agent to `git init` a fresh
-# repo and plan to push to it, exactly the write access it doesn't have).
+# (spec_grill and feature_build today, ADR 010) — skip entirely if absent so
+# this stays a no-op for any job kind that doesn't set them. A clone failure
+# exits non-zero here (via `set -e` + node's own process.exit(1) on error),
+# failing the job before Pi starts rather than handing an agent an empty/wrong
+# workspace and letting it improvise its way to a wrong conclusion (verified
+# against a real stuck run: an empty workspace led the agent to `git init` a
+# fresh repo and plan to push to it, exactly the write access it doesn't
+# have).
+#
+# feature_build only (ADR 010 item 3): FEATURE_BRANCH, if set, is checked
+# out on the primary repo right after cloning — the implement skill's own
+# documented assumption is that this is already done by the time it starts,
+# so it never runs `git checkout -b` itself. ADR_MARKDOWN, if set, is written
+# verbatim to /workspace/.yggdrasil/adr.md — the approved ADR the implement
+# skill treats as its implementation contract. Both are no-ops when absent
+# (spec_grill sets neither), exactly like TARGET_REPOS itself.
 #
 # Bootstrap case: a project's very first project_init run happens *before*
 # any submodule has ever been wired (that wiring is itself project_init's
