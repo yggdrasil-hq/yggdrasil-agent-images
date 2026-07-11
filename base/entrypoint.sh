@@ -109,6 +109,18 @@ try {
 }
 NODE
 
+  # feature_build's two setup steps (ADR 010 item 3) — run after the clone
+  # (both primary and any sibling sub-repos) has fully succeeded, before the
+  # auth rewrite is torn down below, though neither actually needs GitHub
+  # auth itself.
+  if [ -n "${FEATURE_BRANCH:-}" ]; then
+    git -C /workspace checkout -b "$FEATURE_BRANCH"
+  fi
+  if [ -n "${ADR_MARKDOWN:-}" ]; then
+    mkdir -p /workspace/.yggdrasil
+    printf '%s\n' "$ADR_MARKDOWN" > /workspace/.yggdrasil/adr.md
+  fi
+
   git config --global --unset-all url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf
 fi
 
