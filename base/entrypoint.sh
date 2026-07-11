@@ -45,9 +45,17 @@ envsubst < /root/.pi/agent/models.json.template > /root/.pi/agent/models.json
 # .gitmodules (this container never gets a chance to rewrite those URLs
 # individually in advance) — no per-repo token embedding needed, so unlike
 # before, no repo's `origin` remote ever contains the token in the first
-# place. The rewrite is still removed from global config immediately after
-# cloning finishes, so nothing that runs afterwards (including the agent's
-# own shell tool, via `git config --global --list`) can read it back out.
+# place. For spec_grill, the rewrite is removed from global config
+# immediately after cloning finishes (see below), so nothing that runs
+# afterwards (including the agent's own shell tool, via
+# `git config --global --list`) can push with it — appropriate since its
+# token is contents:read anyway and the skill must never write.
+# feature_build (ADR 010) is the opposite case: implement/SKILL.md's step 6
+# is `git push` + `gh pr create` *after* Pi starts, so removing the rewrite
+# here would silently break the one thing the job exists to do — the
+# removal below is skipped whenever FEATURE_BRANCH is set, which is exactly
+# (and only) for a feature_build run, so the rewrite stays live for the
+# whole session instead.
 #
 # Uses node (already required for Pi) instead of adding a jq dependency.
 if [ -n "${TARGET_REPOS:-}" ]; then
@@ -111,8 +119,8 @@ NODE
 
   # feature_build's two setup steps (ADR 010 item 3) — run after the clone
   # (both primary and any sibling sub-repos) has fully succeeded, before the
-  # auth rewrite is torn down below, though neither actually needs GitHub
-  # auth itself.
+  # auth rewrite is (conditionally) torn down below, though neither actually
+  # needs GitHub auth itself.
   if [ -n "${FEATURE_BRANCH:-}" ]; then
     git -C /workspace checkout -b "$FEATURE_BRANCH"
   fi
@@ -121,7 +129,13 @@ NODE
     printf '%s\n' "$ADR_MARKDOWN" > /workspace/.yggdrasil/adr.md
   fi
 
-  git config --global --unset-all url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf
+  # Only spec_grill tears the rewrite down here (see the Auth comment
+  # above) — a feature_build run (FEATURE_BRANCH set) needs it to survive
+  # so the implement skill's own `git push`/`gh pr create` step, which runs
+  # much later, still authenticates.
+  if [ -z "${FEATURE_BRANCH:-}" ]; then
+    git config --global --unset-all url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf
+  fi
 fi
 
 # Pi doesn't auto-discover extensions dropped under ~/.pi/agent/extensions/ —
