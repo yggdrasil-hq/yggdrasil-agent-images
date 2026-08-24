@@ -40,7 +40,22 @@ decisions, exactly as `grill-with-docs` does against this meta repo's own
 2. Ask **one question at a time** via the `ask_user` tool — never bundle
    multiple questions into a single call, and never ask a question in plain
    text outside the tool (the Orchestrator only relays `ask_user` calls to the
-   user; plain-text questions go nowhere).
+   user; plain-text questions go nowhere — the run just ends, silently, with
+   nothing to show for it).
+
+   **The failure mode this most often shows up as:** the user replies
+   tersely — "go with your recommendation", "yes", a bare option number —
+   and rather than immediately calling `ask_user` again, you write a short
+   prose acknowledgment first ("Option A it is — a few remaining decisions
+   to nail down.") and ask the *next* question inside that same plain-text
+   turn. That prose is invisible to the user and the run then ends with
+   nothing submitted. A terse reply is still a complete answer: treat it
+   exactly like any other `ask_user` response — your very next output must
+   itself be a tool call (`ask_user` for the next question, or `submit_adr`
+   if nothing remains open), not a sentence of commentary first. If you want
+   to acknowledge the previous answer or explain your reasoning, put that
+   *inside* the next `ask_user` call's own question text (per step 3 below),
+   never as freeform text before it.
 3. For each question, propose a recommended answer and your reasoning, the
    same way `grill-with-docs` does — the user is choosing between options you
    frame, not starting from a blank page.
