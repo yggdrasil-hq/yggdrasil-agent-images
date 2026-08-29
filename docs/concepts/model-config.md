@@ -27,12 +27,21 @@ to relying on Pi natively — not urgent to change either way.
 
 ## Where the values come from
 
-Per-project, not global (ADR 004): stored as encrypted rows in the API's
-`project_secrets` table (reusing `api/src/secrets/encryption.ts`, AES-256-GCM
-— the same mechanism used for other project env vars), decrypted server-side
-when the API builds the job spec, and injected as plain env vars on the
-ephemeral job PodSpec — the same delivery path already used for the scoped
-GitHub token.
+Stored as encrypted rows (reusing `api/src/secrets/encryption.ts`,
+AES-256-GCM — the same mechanism used for other project env vars), decrypted
+server-side when the API builds the job spec, and injected as plain env vars
+on the ephemeral job PodSpec — the same delivery path already used for the
+scoped GitHub token.
 
-A `web/` settings page for editing these directly is a tracked follow-up;
-today they're only reachable by writing `project_secrets` rows.
+Originally per-project only (ADR 004). **Per ADR 007**
+(`../../../docs/adr/007-per-user-default-model-configuration.md`), resolution
+is now a **live fallback at every dispatch site**: the project's own
+`project_secrets` row is checked first, then the owning user's
+`user_secrets` default — not a snapshot copied at project creation. The
+three env vars are an all-or-nothing bundle at each level: a project has
+none of them set (fully inherits the user default) or all three (fully
+custom). Every dispatch site refuses to dispatch if neither level resolves.
+
+A `web/` settings UI exists for both levels (account default and per-project
+override) — no longer only reachable by writing `project_secrets`/
+`user_secrets` rows directly.
