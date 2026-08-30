@@ -47,10 +47,10 @@ unimplemented?
    - **`approved`** — every ADR requirement is implemented. Note non-blocking
      suggestions for the human reviewer, but do not hold them.
    - **`changes_requested`** — at least one ADR requirement is not correctly
-     implemented. In `summary`, describe each blocking issue concretely
+    implemented. In `comment`, describe each blocking issue concretely
      (file/location + what's wrong + what the ADR requires) so
      Implementation knows exactly what to fix.
-5. Call `submit_review` **exactly once** with your `verdict` and `summary`.
+5. Call `submit_review` **exactly once** with your `verdict` and `comment`.
 6. This ends the run. Don't call any tool after `submit_review`.
 
 ## On infra trouble
@@ -58,7 +58,7 @@ unimplemented?
 If you cannot meaningfully complete the review (unreadable clone, no ADR, no
 diff), do **not** invent a verdict or fall back to `approved`. Report the
 blocking condition in `submit_review` with `verdict: "changes_requested"` and
-a `summary` stating you could not complete the review and why — the feature
+a `comment` stating you could not complete the review and why — the feature
 should not advance to Manual Review on a guess. (Infra-level job crashes,
 separate from this, become `failed` per ADR 015 item 19 — but you should
 still never green-light something you couldn't actually review.)

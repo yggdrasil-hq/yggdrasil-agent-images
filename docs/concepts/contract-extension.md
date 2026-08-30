@@ -22,7 +22,7 @@ every job kind ends its interaction/turns through an explicit tool call
 | `request_action_item(actionItems)` | `feature_build` | Yes — the blocked-implementation kickback (ADR 015 items 7-8), distinct from a crash/`submit_build_result success:false`. |
 | `report_test_step(name, status, details?, screenshotPath?)` | `test_run` | No — called once per subtask |
 | `submit_test_report(passed, failed, summary, recordingPath?)` | `test_run` | Yes |
-| `submit_review(verdict, summary)` | `agentic_review` | Yes — the internal Agentic Review verdict (ADR 015 items 14-16), never a real GitHub PR review. |
+| `submit_review(verdict, comment)` | `agentic_review` | Yes — the internal Agentic Review verdict (ADR 015 items 14-16), never a real GitHub PR review. |
 | `update_design_preview(snapshot)` | `design_grill` | No — ends the current turn so the Web preview can refresh. |
 | `submit_design(snapshot, prUrl?, summary)` | `design_grill` | Yes — finalizes the design session. |
 

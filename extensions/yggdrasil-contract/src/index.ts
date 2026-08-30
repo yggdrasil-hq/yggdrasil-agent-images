@@ -51,6 +51,12 @@ export default function (pi: ExtensionAPI) {
     description: Type.String({
       description: "What this item needs a human or another job to provide.",
     }),
+    secretKey: Type.Optional(
+      Type.String({ description: "The requested project secret or env-var key." }),
+    ),
+    draftTestMarkdown: Type.Optional(
+      Type.String({ description: "The proposed markdown for a test_request item." }),
+    ),
   });
 
   pi.registerTool({
@@ -224,9 +230,9 @@ export default function (pi: ExtensionAPI) {
       "\u201cchanges_requested\u201d sends it back to Implementation). Ends the session.",
     parameters: Type.Object({
       verdict: Type.Union([Type.Literal("approved"), Type.Literal("changes_requested")]),
-      summary: Type.String({
+      comment: Type.String({
         description:
-          "A concise summary of the findings. On changes_requested, describe " +
+          "A concise comment describing the findings. On changes_requested, describe " +
           "each blocking issue so Implementation knows what to fix.",
       }),
     }),
