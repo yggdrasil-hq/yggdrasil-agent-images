@@ -18,6 +18,7 @@ agent-images/
 ├── feature_build/Dockerfile     FROM base — implement skill + Playwright + gh CLI
 ├── test_run/Dockerfile          FROM base — run-tests skill + Playwright
 ├── agentic_review/Dockerfile    FROM base — review skill, no Playwright/gh (read-only diff review)
+├── design_grill/Dockerfile      FROM base — design-grill skill + gh CLI
 └── script_test_run/Dockerfile   standalone (non-Pi) — plain test runner, no Pi/skill/extension
 ```
 
@@ -38,14 +39,15 @@ is the exception — it builds standalone and has no `BASE_IMAGE` arg):
 docker build -f base/Dockerfile -t <registry>/base:<tag> .
 docker build -f spec_grill/Dockerfile --build-arg BASE_IMAGE=<registry>/base:<tag> \
   -t <registry>/spec_grill:<tag> .
-# same pattern for feature_build/Dockerfile, test_run/Dockerfile, and
+# same pattern for feature_build/Dockerfile, test_run/Dockerfile,
+# agentic_review/Dockerfile, and design_grill/Dockerfile
 # agentic_review/Dockerfile
 docker build -f script_test_run/Dockerfile -t <registry>/script_test_run:<tag> .
 ```
 
 ## CI and registry
 
-`.github/workflows/build-images.yml` builds all six images on every push to
+`.github/workflows/build-images.yml` builds all seven images on every push to
 `main` and on PRs (build-only, no push). Images are tagged both `sha-<8-char-sha>`
 (immutable) and `latest`.
 
@@ -57,13 +59,13 @@ per-project; it's one shared, suite-maintained artifact every deployment
 pulls the same version of, and centralized GitHub Actions CI has no network
 path into a self-hosted customer's private cluster anyway. So this repo
 publishes to `ghcr.io/yggdrasil-hq/yggdrasil-agent-images/{base,spec_grill,
-feature_build,test_run,agentic_review,script_test_run}` instead, authenticated
+feature_build,test_run,agentic_review,design_grill,script_test_run}` instead, authenticated
 via `GITHUB_TOKEN` (no extra secret) — every Orchestrator, self-hosted or
 managed, pulls directly from there, bypassing its own local/per-install
 registry entirely for this artifact.
 
 The Orchestrator's `SPEC_GRILL_IMAGE`/`FEATURE_BUILD_IMAGE`/`TEST_RUN_IMAGE`/
-`AGENTIC_REVIEW_IMAGE`/`SCRIPT_TEST_RUN_IMAGE` env vars are still bumped by
+`AGENTIC_REVIEW_IMAGE`/`DESIGN_GRILL_IMAGE`/`SCRIPT_TEST_RUN_IMAGE` env vars are still bumped by
 hand (see `../../orchestrator/.env.example`) — CI publishes new tags but
 nothing yet updates those env vars automatically.
 

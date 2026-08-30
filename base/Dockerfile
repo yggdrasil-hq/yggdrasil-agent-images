@@ -1,6 +1,6 @@
 # Common base for every job-kind image (ADR 004): Pi itself, the shared
 # yggdrasil-contract extension, and the model config template. Per-job-kind
-# Dockerfiles (../spec_grill, ../feature_build, ../test_run) build FROM this
+# Dockerfiles (../spec_grill, ../feature_build, ../test_run, ../design_grill) build FROM this
 # image's published tag — build and push this one first.
 #
 # Pi's installer requires Node.js >= 22.19 — node:20-slim is too old.

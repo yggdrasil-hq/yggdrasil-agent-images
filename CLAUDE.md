@@ -62,9 +62,10 @@ Full index: `docs/README.md`.
 - **Status:** Dockerfiles, skills, and the shared extension are scaffolded and
   build cleanly (verified with local `docker build`). CI
   (`.github/workflows/build-images.yml`) builds and pushes the common base +
-  three per-job-kind images (`spec_grill`, `feature_build`, `test_run`) to
-  `ghcr.io/yggdrasil-hq/yggdrasil-agent-images/*` on every push to `main` —
-  see `docs/concepts/images.md`. `design_grill` (ADR 014) has no image/skill
-  here yet. Registry auth for self-hosted installs (GHCR packages default to
+  six per-job-kind images (`spec_grill`, `feature_build`, `test_run`,
+  `agentic_review`, `script_test_run`, `design_grill`) to
+  `ghcr.io/yggdrasil-hq/yggdrasil-agent-images/*` on every
+  push to `main` — see `docs/concepts/images.md`. Registry auth for
+  self-hosted installs (GHCR packages default to
   private) is documented in the meta repo's `../docs/conventions/deploy.md`.
   See `../docs/adr/004-agent-base-containers.md`.

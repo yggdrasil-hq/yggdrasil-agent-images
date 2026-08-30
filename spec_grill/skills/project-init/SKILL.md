@@ -70,6 +70,11 @@ codebase instead of asking, read the codebase.
    ambiguous (e.g. where an existing ad hoc script's logic should move to
    inside the new `setup.sh`/`run.sh` split).
 
+6. **Does this project have a web, mobile, or other user-facing interface?**
+   If yes, include `designs/` in the implementation plan and submit
+   `hasDesignSurface: true`; otherwise submit `hasDesignSurface: false` and
+   do not scaffold `designs/`.
+
 ## Read-only, always
 
 This is a read-only exploration and interview session, full stop. **Never
@@ -105,6 +110,8 @@ specify, as its Decision section:
 - If any linked sub-repos exist: a plan to wire each one in as a **git
   submodule** of the primary (`git submodule add <url> <path>`), not a
   sibling clone.
+- `hasDesignSurface` must match the answer to the user-facing-interface
+  question so the API can gate `design_grill` correctly.
 - If the repo already has non-conforming code: a concrete restructuring plan
   (what moves where), informed by the interview above.
 

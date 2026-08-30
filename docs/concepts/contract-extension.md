@@ -23,6 +23,8 @@ every job kind ends its interaction/turns through an explicit tool call
 | `report_test_step(name, status, details?, screenshotPath?)` | `test_run` | No — called once per subtask |
 | `submit_test_report(passed, failed, summary, recordingPath?)` | `test_run` | Yes |
 | `submit_review(verdict, summary)` | `agentic_review` | Yes — the internal Agentic Review verdict (ADR 015 items 14-16), never a real GitHub PR review. |
+| `update_design_preview(snapshot)` | `design_grill` | No — ends the current turn so the Web preview can refresh. |
+| `submit_design(snapshot, prUrl?, summary)` | `design_grill` | Yes — finalizes the design session. |
 
 "Ends the run" tools set `terminate: true` in their tool result, which tells
 Pi to skip its automatic follow-up model call — the Orchestrator should treat

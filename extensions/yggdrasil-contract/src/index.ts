@@ -76,6 +76,11 @@ export default function (pi: ExtensionAPI) {
           description: "Optional Action Items that gate the build (ADR 015).",
         })
       ),
+      hasDesignSurface: Type.Optional(
+        Type.Boolean({
+          description: "Whether the project has a web/mobile/user-facing interface.",
+        }),
+      ),
     }),
     async execute(_toolCallId, params) {
       return {
@@ -84,7 +89,56 @@ export default function (pi: ExtensionAPI) {
           kind: "submit_adr",
           markdown: params.markdown,
           ...(params.actionItems ? { actionItems: params.actionItems } : {}),
+          ...(params.hasDesignSurface !== undefined
+            ? { hasDesignSurface: params.hasDesignSurface }
+            : {}),
         },
+        terminate: true,
+      };
+    },
+  });
+
+  // ---- design_grill --------------------------------------------------
+
+  const designSnapshot = Type.Record(Type.String(), Type.String(), {
+    description: "Every file under designs/<slug>, keyed by relative path.",
+  });
+
+  pi.registerTool({
+    name: "update_design_preview",
+    label: "Update design preview",
+    description:
+      "Publish the complete current designs/<slug> file snapshot after " +
+      "changing the mockup. This ends the current turn so the live preview " +
+      "can refresh; it does not end the design session.",
+    parameters: Type.Object({
+      snapshot: designSnapshot,
+    }),
+    async execute(_toolCallId, params) {
+      return {
+        content: [{ type: "text", text: "Design preview updated." }],
+        details: { kind: "update_design_preview", snapshot: params.snapshot },
+        terminate: true,
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "submit_design",
+    label: "Submit design",
+    description:
+      "Submit the complete final designs/<slug> snapshot after committing " +
+      "the design branch and opening its draft PR. Call exactly once to end " +
+      "the design_grill session.",
+    parameters: Type.Object({
+      snapshot: designSnapshot,
+      prUrl: Type.Optional(Type.String({ description: "Draft PR URL." })),
+      summary: Type.String({ description: "Summary of the finalized design." }),
+    }),
+    async execute(_toolCallId, params) {
+      return {
+        content: [{ type: "text", text: "Design submitted." }],
+        details: { kind: "submit_design", ...params },
         terminate: true,
       };
     },

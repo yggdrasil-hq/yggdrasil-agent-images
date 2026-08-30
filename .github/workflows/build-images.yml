@@ -19,6 +19,7 @@ on:
       - "test_run/**"
       - "agentic_review/**"
       - "script_test_run/**"
+      - "design_grill/**"
       - "models.json.template"
       - ".github/workflows/build-images.yml"
   pull_request:
@@ -30,6 +31,7 @@ on:
       - "test_run/**"
       - "agentic_review/**"
       - "script_test_run/**"
+      - "design_grill/**"
       - "models.json.template"
       - ".github/workflows/build-images.yml"
   workflow_dispatch: {}
@@ -118,11 +120,19 @@ jobs:
             -t "$IMAGE_ROOT/script_test_run:latest" \
             .
 
+      - name: Build design_grill image
+        run: |
+          docker build -f design_grill/Dockerfile \
+            --build-arg BASE_IMAGE="$IMAGE_ROOT/base:${{ steps.vars.outputs.sha_tag }}" \
+            -t "$IMAGE_ROOT/design_grill:${{ steps.vars.outputs.sha_tag }}" \
+            -t "$IMAGE_ROOT/design_grill:latest" \
+            .
+
       # PRs stop here (build validation only) — nothing below runs.
       - name: Push images
         if: github.event_name != 'pull_request'
         run: |
-          for image in base spec_grill feature_build test_run agentic_review script_test_run; do
+          for image in base spec_grill feature_build test_run agentic_review script_test_run design_grill; do
             docker push "$IMAGE_ROOT/$image:${{ steps.vars.outputs.sha_tag }}"
             docker push "$IMAGE_ROOT/$image:latest"
           done

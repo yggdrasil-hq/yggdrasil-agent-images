@@ -13,6 +13,7 @@
 | `feature_build` | `implement` | `feature_build/skills/implement/SKILL.md` |
 | `test_run` | `run-tests` | `test_run/skills/run-tests/SKILL.md` |
 | `agentic_review` | `review` | `agentic_review/skills/review/SKILL.md` |
+| `design_grill` | `design-grill` | `design_grill/skills/design-grill/SKILL.md` |
 
 `script_test_run` has **no skill** — it is the deliberately non-agent job kind
 (ADR 015): a plain container that runs the project's own `test-unit.sh` /
