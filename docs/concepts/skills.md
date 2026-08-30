@@ -12,6 +12,12 @@
 | `spec_grill` — every other feature | `feature-grill` | `spec_grill/skills/feature-grill/SKILL.md` |
 | `feature_build` | `implement` | `feature_build/skills/implement/SKILL.md` |
 | `test_run` | `run-tests` | `test_run/skills/run-tests/SKILL.md` |
+| `agentic_review` | `review` | `agentic_review/skills/review/SKILL.md` |
+
+`script_test_run` has **no skill** — it is the deliberately non-agent job kind
+(ADR 015): a plain container that runs the project's own `test-unit.sh` /
+`test-integration.sh` scripts and writes the canonical
+`.yggdrasil/test-report.json`. See `script_test_run/entrypoint.sh`.
 
 `spec_grill` is the one job kind with two skills installed side by side
 (ADR 008 items 2-5): the Orchestrator's initial prompt names exactly one of

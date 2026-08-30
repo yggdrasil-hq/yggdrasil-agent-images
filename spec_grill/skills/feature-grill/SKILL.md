@@ -85,4 +85,13 @@ clone/push with different credentials).
   with the complete ADR (Context / Decision / Consequences / Alternatives
   considered — mirror the target repo's own ADR format if one exists from
   reading `docs/adr/`, otherwise use that same structure as a sane default).
+- If building this feature depends on anything only a human or another job
+  can provide, include an `actionItems` batch in the same `submit_adr` call
+  (ADR 015 items 4-6). The types are `secret_request` (a missing env var/API
+  key, with the key name in the item description), `design_grill` (a design
+  decision this feature depends on), `subtask_feature` (a separate feature
+  whose code this build needs), and `test_request` (a blocking test this
+  build depends on). These are resolved before the human can approve the
+  build — don't invent them where reasonable judgment suffices, but do flag
+  genuine blockers.
 - This ends the run. Don't call any tool after `submit_adr`.

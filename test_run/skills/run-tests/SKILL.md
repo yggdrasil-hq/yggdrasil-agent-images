@@ -11,7 +11,8 @@ user to ask questions of and no code to write here; this skill only verifies.
 
 ## Assumptions about what's already done for you
 
-- All linked repos are cloned at `main`.
+- All linked repos are cloned and the primary repo is checked out at the
+  requested feature ref.
 - The app is already built and exposed at the URL in the `PREVIEW_URL` env
   var.
 - The test markdown spec for this run is available at

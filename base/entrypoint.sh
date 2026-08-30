@@ -121,12 +121,20 @@ NODE
   # (both primary and any sibling sub-repos) has fully succeeded, before the
   # auth rewrite is (conditionally) torn down below, though neither actually
   # needs GitHub auth itself.
-  if [ -n "${FEATURE_BRANCH:-}" ]; then
+  if [ -n "${FEATURE_REF:-}" ]; then
+    git -C /workspace fetch origin "$FEATURE_REF:$FEATURE_REF"
+    git -C /workspace checkout --detach "$FEATURE_REF"
+    git -C /workspace submodule update --init --recursive
+  elif [ -n "${FEATURE_BRANCH:-}" ]; then
     git -C /workspace checkout -b "$FEATURE_BRANCH"
   fi
   if [ -n "${ADR_MARKDOWN:-}" ]; then
     mkdir -p /workspace/.yggdrasil
     printf '%s\n' "$ADR_MARKDOWN" > /workspace/.yggdrasil/adr.md
+  fi
+  if [ -n "${TEST_MARKDOWN:-}" ]; then
+    mkdir -p /workspace/.yggdrasil
+    printf '%s\n' "$TEST_MARKDOWN" > /workspace/.yggdrasil/test-spec.md
   fi
 
   # Only spec_grill tears the rewrite down here (see the Auth comment

@@ -14,6 +14,8 @@ merges:
 |---|---|---|
 | `setup.sh` | Idempotent one-time environment setup: install deps, generate env files, seed a database, anything needed before the app can run. | Only if the project actually needs bootstrap/seed steps — omit if there's nothing to do. |
 | `run.sh` | The single deterministic command that brings the app up locally. Not docker-compose — one script, whatever it needs to do internally (start containers, run dev servers, whatever fits the stack) to be a repeatable, one-command local run. | Always. |
+| `test-unit.sh` | The project's unit-test command, run inside Yggdrasil's `script_test_run` job (ADR 015 item 10-11 — amends ADR 008 item 6). **Must write** the canonical `.yggdrasil/test-report.json` (`{passed, failed, skipped, total, coveragePercent?, failingTests}`) — the script, not Yggdrasil, is responsible for parsing its own framework output (jest/pytest/go test/…) into that file. | Optional — a script's mere presence is its own enable/disable toggle; omit if the project has no unit-test command. |
+| `test-integration.sh` | The project's integration-test command, same `script_test_run` convention and `.yggdrasil/test-report.json` contract as `test-unit.sh`. | Optional — same presence-is-the-toggle rule. |
 | `docs/CONTEXT.md` | Living snapshot of decided-vs-open context for this project — same role as yggdrasil-core's own `docs/CONTEXT.md` (ADR 004 §14). | Always. |
 | `docs/adr/` | Directory of accepted ADRs for this project, starting with `project_init`'s own ADR as `001-*.md`. | Always. |
 | Helm chart | Scaffolded from Yggdrasil's strict template (ADR 003 §12) — describes the project's **hosting** topology (previews + the always-on primary deployment). This already gets scaffolded at project creation, separately from this grill session; project-init's job is to confirm it exists, not re-decide it. | Always (hosting only — never used for local dev). |
@@ -28,9 +30,14 @@ merges:
 - **Not a replacement for the Helm chart.** `setup.sh`/`run.sh` are strictly
   local-dev conventions. The Helm chart remains the Orchestrator's only
   hosting mechanism (ephemeral previews for `spec_grill`/`feature_build`/
-  `test_run`, and the always-on primary deployment for prod — ADR 003
-  §9-13). Never conflate the two, and never propose replacing the Helm chart
-  with `run.sh` or vice versa.
+  `test_run`/`script_test_run`, and the always-on primary deployment for
+  prod — ADR 003 §9-13). Never conflate the two, and never propose replacing
+  the Helm chart with `run.sh` or vice versa.
+- **`test-unit.sh`/`test-integration.sh` are not local-dev commands.** They
+  run inside Yggdrasil's `script_test_run` job (no LLM, no browser — ADR 015
+  item 10); a developer testing locally would still just run their framework's
+  own command. Their only contract is to exit with the framework's status and
+  write `.yggdrasil/test-report.json`.
 - **Not asking "single repo or multi-repo."** That's already decided by the
   repo picker at project-creation time (ADR 002 §2) — this standard is about
   what the *primary repo's own tree* looks like once `project_init` is done,

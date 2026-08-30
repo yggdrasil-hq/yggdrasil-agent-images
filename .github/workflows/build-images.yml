@@ -17,6 +17,8 @@ on:
       - "spec_grill/**"
       - "feature_build/**"
       - "test_run/**"
+      - "agentic_review/**"
+      - "script_test_run/**"
       - "models.json.template"
       - ".github/workflows/build-images.yml"
   pull_request:
@@ -26,6 +28,8 @@ on:
       - "spec_grill/**"
       - "feature_build/**"
       - "test_run/**"
+      - "agentic_review/**"
+      - "script_test_run/**"
       - "models.json.template"
       - ".github/workflows/build-images.yml"
   workflow_dispatch: {}
@@ -62,9 +66,12 @@ jobs:
 
       # Build order matters (see ../../docs/concepts/images.md): base first
       # (Pi + the shared yggdrasil-contract extension + model config
-      # templating), then the three per-job-kind images FROM it (ADR 004).
-      # Plain `docker build`, not buildx — matches exactly what was verified
-      # locally by hand before this workflow was written.
+      # templating), then the per-job-kind Pi images FROM it (ADR 004). The
+      # non-Pi `script_test_run` image (ADR 015) builds standalone AFTER the
+      # base, only so its tag is grouped with the rest — it has no
+      # BASE_IMAGE dependency. Plain `docker build`, not buildx — matches
+      # exactly what was verified locally by hand before this workflow was
+      # written.
       - name: Build base image
         run: |
           docker build -f base/Dockerfile \
@@ -96,11 +103,26 @@ jobs:
             -t "$IMAGE_ROOT/test_run:latest" \
             .
 
+      - name: Build agentic_review image
+        run: |
+          docker build -f agentic_review/Dockerfile \
+            --build-arg BASE_IMAGE="$IMAGE_ROOT/base:${{ steps.vars.outputs.sha_tag }}" \
+            -t "$IMAGE_ROOT/agentic_review:${{ steps.vars.outputs.sha_tag }}" \
+            -t "$IMAGE_ROOT/agentic_review:latest" \
+            .
+
+      - name: Build script_test_run image
+        run: |
+          docker build -f script_test_run/Dockerfile \
+            -t "$IMAGE_ROOT/script_test_run:${{ steps.vars.outputs.sha_tag }}" \
+            -t "$IMAGE_ROOT/script_test_run:latest" \
+            .
+
       # PRs stop here (build validation only) — nothing below runs.
       - name: Push images
         if: github.event_name != 'pull_request'
         run: |
-          for image in base spec_grill feature_build test_run; do
+          for image in base spec_grill feature_build test_run agentic_review script_test_run; do
             docker push "$IMAGE_ROOT/$image:${{ steps.vars.outputs.sha_tag }}"
             docker push "$IMAGE_ROOT/$image:latest"
           done

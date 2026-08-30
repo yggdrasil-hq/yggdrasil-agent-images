@@ -37,6 +37,22 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
+  // Four Action Item types, one per resolution mechanic (ADR 015 items 4-6).
+  // `type` values match FeatureActionItemType in the API and the payloads
+  // used by feature_build's request_action_item tool (Track B3).
+  const actionItemTypes = Type.Union([
+    Type.Literal("secret_request"),
+    Type.Literal("design_grill"),
+    Type.Literal("subtask_feature"),
+    Type.Literal("test_request"),
+  ]);
+  const actionItem = Type.Object({
+    type: actionItemTypes,
+    description: Type.String({
+      description: "What this item needs a human or another job to provide.",
+    }),
+  });
+
   pi.registerTool({
     name: "submit_adr",
     label: "Submit ADR",
@@ -46,16 +62,29 @@ export default function (pi: ExtensionAPI) {
       "action of a spec_grill run. Ends the session: the Orchestrator " +
       "persists `markdown` on the feature record (nothing is committed to " +
       "git yet — that happens later, during feature_build) and tears the " +
-      "container down.",
+      "container down. Optionally include the batch of Action Items that " +
+      "must be resolved before building (ADR 015 items 4-6): env var/secret " +
+      "requests, moves to a design session, new blocking subtask features, " +
+      "or test requests. Every item must be resolved before the human can " +
+      "approve the build.",
     parameters: Type.Object({
       markdown: Type.String({
         description: "The complete ADR document, ready for human review.",
       }),
+      actionItems: Type.Optional(
+        Type.Array(actionItem, {
+          description: "Optional Action Items that gate the build (ADR 015).",
+        })
+      ),
     }),
     async execute(_toolCallId, params) {
       return {
         content: [{ type: "text", text: "ADR submitted." }],
-        details: { kind: "submit_adr", markdown: params.markdown },
+        details: {
+          kind: "submit_adr",
+          markdown: params.markdown,
+          ...(params.actionItems ? { actionItems: params.actionItems } : {}),
+        },
         terminate: true,
       };
     },
@@ -83,6 +112,74 @@ export default function (pi: ExtensionAPI) {
       return {
         content: [{ type: "text", text: `Build result: ${params.status}` }],
         details: { kind: "submit_build_result", ...params },
+        terminate: true,
+      };
+    },
+  });
+
+  // Blocked mid-build kickback (ADR 015 items 7-8, Track B3) — a terminal
+  // call distinct from a generic crash/`submit_build_result success:false`.
+  // Signals the Orchestrator to land the feature back in `draft` and
+  // dispatch a context-seeded spec_grill rather than into `failed`.
+  pi.registerTool({
+    name: "request_action_item",
+    label: "Request action item",
+    description:
+      "Report that implementation is blocked on something only a human or " +
+      "another job can provide: a missing env var/secret, a dependency that " +
+      "should be its own feature, a design decision that needs a design " +
+      "session, or a test the build depends on. Call exactly once when the " +
+      "feature is genuinely blocked for one of these reasons — NOT for a " +
+      "generic crash or bug, which should instead call submit_build_result " +
+      "with status \u201cfailure\u201d. Ends the session: the feature is sent back to " +
+      "Spec with these needed items and a fresh, context-seeded grill runs.",
+    parameters: Type.Object({
+      actionItems: Type.Array(actionItem, {
+        description:
+          "One or more items only a human or another job can provide before " +
+          "implementation can proceed.",
+      }),
+    }),
+    async execute(_toolCallId, params) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Requested ${params.actionItems.length} action item(s): ${params.actionItems
+              .map((item) => item.description)
+              .join("; ")}`,
+          },
+        ],
+        details: { kind: "request_action_item", actionItems: params.actionItems },
+        terminate: true,
+      };
+    },
+  });
+
+  // ---- agentic_review (ADR 015 items 13-16, Track B6) -----------------
+
+  pi.registerTool({
+    name: "submit_review",
+    label: "Submit review",
+    description:
+      "Submit the terminal verdict of an agentic review of a feature's " +
+      "implementation diff: whether it actually implements the approved ADR. " +
+      "Call exactly once, as the last action of an agentic_review run. This " +
+      "is an internal Yggdrasil verdict, never a real GitHub PR review " +
+      "(\u201capproved\u201d advances the feature to Manual Review; " +
+      "\u201cchanges_requested\u201d sends it back to Implementation). Ends the session.",
+    parameters: Type.Object({
+      verdict: Type.Union([Type.Literal("approved"), Type.Literal("changes_requested")]),
+      summary: Type.String({
+        description:
+          "A concise summary of the findings. On changes_requested, describe " +
+          "each blocking issue so Implementation knows what to fix.",
+      }),
+    }),
+    async execute(_toolCallId, params) {
+      return {
+        content: [{ type: "text", text: `Review: ${params.verdict}` }],
+        details: { kind: "submit_review", ...params },
         terminate: true,
       };
     },
@@ -125,8 +222,12 @@ export default function (pi: ExtensionAPI) {
       "run and reported via report_test_step. Call exactly once, as the " +
       "last action of a test_run. Ends the session.",
     parameters: Type.Object({
-      passed: Type.Number(),
-      failed: Type.Number(),
+      passed: Type.Number({ minimum: 0 }),
+      failed: Type.Number({ minimum: 0 }),
+      skipped: Type.Optional(Type.Number({ minimum: 0 })),
+      total: Type.Optional(Type.Number({ minimum: 0 })),
+      coveragePercent: Type.Optional(Type.Number({ minimum: 0, maximum: 100 })),
+      failingTests: Type.Optional(Type.Array(Type.String())),
       summary: Type.String(),
       recordingPath: Type.Optional(
         Type.String({ description: "Path to a screen recording artifact, if captured." })

@@ -17,10 +17,12 @@ every job kind ends its interaction/turns through an explicit tool call
 | Tool | Job kind | Ends the run? |
 |------|----------|----------------|
 | `ask_user(question)` | `spec_grill` | No — ends the *turn*; Orchestrator relays the question and feeds the reply back as the next prompt. |
-| `submit_adr(markdown)` | `spec_grill` | Yes |
+| `submit_adr(markdown, actionItems?)` | `spec_grill` | Yes |
 | `submit_build_result(status, prUrl?, summary)` | `feature_build` | Yes |
+| `request_action_item(actionItems)` | `feature_build` | Yes — the blocked-implementation kickback (ADR 015 items 7-8), distinct from a crash/`submit_build_result success:false`. |
 | `report_test_step(name, status, details?, screenshotPath?)` | `test_run` | No — called once per subtask |
 | `submit_test_report(passed, failed, summary, recordingPath?)` | `test_run` | Yes |
+| `submit_review(verdict, summary)` | `agentic_review` | Yes — the internal Agentic Review verdict (ADR 015 items 14-16), never a real GitHub PR review. |
 
 "Ends the run" tools set `terminate: true` in their tool result, which tells
 Pi to skip its automatic follow-up model call — the Orchestrator should treat

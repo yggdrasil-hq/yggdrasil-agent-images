@@ -1,7 +1,7 @@
 ---
 name: implement
-description: Implement the approved ADR for this feature end-to-end without pausing for user input — write code, commit the ADR to docs/adr/NNN-<slug>.md, self-verify UI changes with Playwright when applicable, and open a draft PR. Use for feature_build runs only.
-allowed-tools: [submit_build_result]
+description: Implement the approved ADR for this feature end-to-end without pausing for user input — write code, commit the ADR to docs/adr/NNN-<slug>.md, self-verify UI changes with Playwright when applicable, and open a draft PR. If genuinely blocked on something only a human or another job can provide, call request_action_item instead of failing. Use for feature_build runs only.
+allowed-tools: [submit_build_result, request_action_item]
 ---
 
 # implement
@@ -47,3 +47,31 @@ work around silently.)
      feature can't be completed as specified — don't leave the run hanging
      without calling this.
 8. This ends the run. Don't call any tool after `submit_build_result`.
+
+## When to request an action item instead of failing
+
+`submit_build_result status:"failure"` is for a generic crash or bug — the
+feature can't be completed as specified, and the fix is a re-attempt of the
+same build. But if implementation is **genuinely blocked on something only a
+human or another job can provide**, call `request_action_item` **exactly once**
+as the terminal action instead. The four cases (ADR 015 item 8):
+
+- **A missing secret/env var** the feature needs at runtime (e.g. an API key
+  that must be provisioned). Name it precisely — a human will add it to the
+  project's secrets.
+- **A dependency that should be its own feature** — completing this feature
+  requires a separate feature's code (e.g. an underlying library feature) that
+  doesn't exist yet.
+- **A design decision the build depends on** that needs a design session
+  (`design_grill`).
+- **A test the build depends on** — a blocking test request.
+
+Do NOT call `request_action_item` for:
+- A crash, error, or dead end — that's `submit_build_result status:"failure"`.
+- Anything the ADR's ambiguity lets you resolve with a reasonable judgment
+  call (step 3 above) — make the call and note it in the PR instead.
+
+The distinction is: a human or another job must act before this build can
+possibly succeed. If it's just a hard implementation problem, that's a failure.
+This call sends the feature back to a fresh, context-seeded spec_grill with the
+needed items (ADR 015 item 8); it does not mark the run failed.
