@@ -1,136 +1,136 @@
 #!/bin/sh
-set -eu
+set -u
 
-# script_test_run is the non-agent test job kind (ADR 015 items 10-11). This
-# entrypoint clones the primary repo, runs the structure standard's optional
-# `test-unit.sh` / `test-integration.sh` scripts (ADR 008 item 6, amended by
-# ADR 015), and leaves the canonical `.yggdrasil/test-report.json` for the
-# Orchestrator/API to read. Yggdrasil never parses jest/JUnit/lcov — the
-# project's own script owns that translation and must write
-# `.yggdrasil/test-report.json`: {passed, failed, skipped, total,
-# coveragePercent?, failingTests: []}.
+: "${JOB_ID:?JOB_ID is required}"
+: "${YGGDRASIL_API_URL:?YGGDRASIL_API_URL is required}"
+: "${YGGDRASIL_API_TOKEN:?YGGDRASIL_API_TOKEN is required}"
+: "${TARGET_REPOS:?TARGET_REPOS is required}"
+: "${GITHUB_TOKEN:?GITHUB_TOKEN is required}"
 
-# Auth + cloning follow base/entrypoint.sh's pattern (TARGET_REPOS is the
-# JSON-encoded FeatureSpecRepo list, GITHUB_TOKEN a `contents: read` token),
-# minus Pi entirely.
-if [ -n "${TARGET_REPOS:-}" ]; then
-  git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+case "${SCRIPT_NAME:-}" in
+  unit) script_file="test-unit.sh" ;;
+  integration) script_file="test-integration.sh" ;;
+  *) echo "script_test_run: SCRIPT_NAME must be unit or integration" >&2; exit 1 ;;
+esac
 
-  node <<'NODE'
-const { execFileSync } = require("node:child_process");
+git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
 
+# Clone the primary repository and any linked repository not already wired as
+# a submodule. This is the non-Pi equivalent of base/entrypoint.sh's bootstrap.
+node --input-type=module <<'NODE'
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+
+const normalize = (url) => url.replace(/\.git$/, "").replace(/\/$/, "").toLowerCase();
+const repoDirName = (url) => url.replace(/\.git$/, "").split("/").pop();
 const repos = JSON.parse(process.env.TARGET_REPOS);
 const primary = repos.find((repo) => repo.isPrimary);
-if (primary) {
-  execFileSync("git", ["clone", "--recurse-submodules", primary.cloneUrl, "/workspace"], { stdio: "inherit" });
-} else {
-  console.error("script_test_run: no primary repo in TARGET_REPOS");
-  process.exit(1);
-}
-NODE
+if (!primary) throw new Error("TARGET_REPOS has no primary repository");
 
-  # spec_grill tore the rewrite down after cloning because its token is
-  # contents:read anyway; the test runner only reads too, so a plain read of
-  # the checkout needs no push auth beyond the clone — but the scripts may
-  # legitimately need to fetch/install deps from the repo remote, which the
-  # rewrite still covers. Keep it simple: leave the rewrite in place for the
-  # duration of the run; the container is short-lived and torn down after.
-fi
+execFileSync("git", ["clone", "--recurse-submodules", primary.cloneUrl, "/workspace"], {
+  stdio: "inherit",
+});
 
-# The canonical report path. Scripts write here; if no script runs we still
-# produce a report so the API has something deterministic to read.
-REPORT_DIR=/workspace/.yggdrasil
-REPORT_FILE="$REPORT_DIR/test-report.json"
-mkdir -p "$REPORT_DIR"
-
-# Determine which scripts exist (each is its own enable/disable toggle; ADR
-# 015 item 10). Scripts may run against either `main` (default test_run
-# posture) or the feature branch a Testing-stage dispatch targets.
-cd /workspace
-
-run_script() {
-  script="$1"
-  name="$2"
-  if [ ! -x "$script" ] && [ ! -f "$script" ]; then
-    return 1
-  fi
-  # Shell scripts may omit the executable bit but still be valid; run via sh
-  # if not executable, otherwise run directly.
-  echo "script_test_run: running $name ($script)"
-  if [ -x "$script" ]; then
-    "$script"
-  else
-    sh "$script"
-  fi
-  return 0
-}
-
-# Which scripts exist (each is its own enable/disable toggle; ADR 015 item
-# 10). Scripts may run against either a branch the dispatch targeted.
-run_unit=false
-run_integration=false
-
-if run_script "./test-unit.sh" "unit"; then
-  run_unit=true
-fi
-if run_script "./test-integration.sh" "integration"; then
-  run_integration=true
-fi
-
-# Scripts may write their report either to the single canonical
-# test-report.json (common single-script case) or to a per-group file
-# test-report-unit.json / test-report-integration.json. When scripts write
-# the single canonical file, a later script's write wins (last writer wins).
-# If only per-group files exist, merge them into the canonical path below.
-
-# Merge any per-group reports present into the canonical file.
-if command -v node >/dev/null 2>&1; then
-  node <<'NODE'
-const fs = require("node:fs");
-const path = "/workspace/.yggdrasil";
-
-function safeRead(id) {
-  const file = path + "/test-report-" + id + ".json";
-  if (!fs.existsSync(file)) return null;
-  try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return null; }
-}
-function sum(acc, r) {
-  if (!r) return acc;
-  acc.passed += r.passed || 0;
-  acc.failed += r.failed || 0;
-  acc.skipped += r.skipped || 0;
-  acc.total += r.total || (r.passed||0) + (r.failed||0) + (r.skipped||0);
-  if (r.coveragePercent != null) acc.coveragePercent = (acc.coveragePercent||0) + r.coveragePercent;
-  acc.failingTests = (acc.failingTests||[]).concat(r.failingTests||[]);
-  return acc;
-}
-const agg = { passed: 0, failed: 0, skipped: 0, total: 0, coveragePercent: 0, failingTests: [] };
-const any = safeRead("unit") || safeRead("integration");
-if (any) {
-  [safeRead("unit"), safeRead("integration")].forEach((r) => sum(agg, r));
-  // Only write the canonical file if no per-run script already wrote a real
-  // report *and* we have group reports to merge.
-  if (!fs.existsSync(path + "/test-report.json")) {
-    fs.writeFileSync(path + "/test-report.json", JSON.stringify(agg, null, 2));
+const wired = new Set();
+const gitmodulesPath = "/workspace/.gitmodules";
+if (fs.existsSync(gitmodulesPath)) {
+  try {
+    const output = execFileSync(
+      "git",
+      ["config", "-f", gitmodulesPath, "--get-regexp", "\\.url$"],
+      { encoding: "utf8" },
+    );
+    for (const line of output.trim().split("\n")) {
+      const url = line.split(" ").slice(1).join(" ").trim();
+      if (url) wired.add(normalize(url));
+    }
+  } catch {
+    // No URL entries means no linked repository was wired yet.
   }
 }
+
+for (const repo of repos) {
+  if (repo.isPrimary || wired.has(normalize(repo.cloneUrl))) continue;
+  execFileSync("git", ["clone", repo.cloneUrl, `/workspace/${repoDirName(repo.cloneUrl)}`], {
+    stdio: "inherit",
+  });
+}
 NODE
+
+if [ -n "${FEATURE_REF:-}" ]; then
+  git -C /workspace fetch origin "$FEATURE_REF:$FEATURE_REF"
+  git -C /workspace checkout --detach "$FEATURE_REF"
+  git -C /workspace submodule update --init --recursive
 fi
 
-# If nothing produced a canonical report (no scripts, or scripts that wrote
-# nothing), emit an empty one so the API always has a determinable outcome.
-if [ ! -f "$REPORT_FILE" ]; then
-  if [ "$run_unit" = false ] && [ "$run_integration" = false ]; then
-    echo '{"passed":0,"failed":0,"skipped":0,"total":0,"failingTests":[]}' > "$REPORT_FILE"
-    echo "script_test_run: no test-unit.sh / test-integration.sh present; wrote empty report"
-  else
-    # Scripts ran but produced no report file — treat as a failure to conform
-    # to the convention (ADR 015 item 11: the script is responsible for
-    # writing the canonical report).
-    echo "script_test_run: script(s) ran but produced no $REPORT_FILE" >&2
-    echo '{"passed":0,"failed":0,"skipped":0,"total":0,"failingTests":[{"name":"missing report","message":"no .yggdrasil/test-report.json written by test scripts"}]}' > "$REPORT_FILE"
-  fi
+git config --global --unset-all url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf 2>/dev/null || true
+
+report_path="/workspace/.yggdrasil/test-report.json"
+mkdir -p /workspace/.yggdrasil
+script_status=0
+if [ -f "/workspace/$script_file" ]; then
+  sh "/workspace/$script_file" || script_status=$?
+else
+  # Script presence is the group's enable/disable toggle. An absent script is
+  # a successful empty group, not a failing test run.
+  printf '%s\n' '{"passed":0,"failed":0,"skipped":0,"total":0,"failingTests":[],"summary":"No '"$script_file"' found; test group disabled."}' > "$report_path"
 fi
 
-echo "script_test_run: report written to $REPORT_FILE"
-cat "$REPORT_FILE"
+# The project's script owns framework-specific translation into the canonical
+# report. This runner only validates and forwards that JSON to the API.
+node --input-type=module <<'NODE'
+import fs from "node:fs";
+
+const report = JSON.parse(fs.readFileSync("/workspace/.yggdrasil/test-report.json", "utf8"));
+for (const field of ["passed", "failed", "skipped", "total"]) {
+  if (!Number.isInteger(report[field]) || report[field] < 0) {
+    throw new Error(`invalid test report field: ${field}`);
+  }
+}
+if (report.total < report.passed + report.failed + report.skipped) {
+  throw new Error("test report total is less than its result counts");
+}
+if (typeof report.summary !== "string" || report.summary.trim() === "") {
+  throw new Error("test report summary is required");
+}
+if (
+  report.coveragePercent !== undefined &&
+  (typeof report.coveragePercent !== "number" ||
+    report.coveragePercent < 0 ||
+    report.coveragePercent > 100)
+) {
+  throw new Error("invalid test report coveragePercent");
+}
+if (
+  !Array.isArray(report.failingTests) ||
+  report.failingTests.some((test) => typeof test !== "string")
+) {
+  throw new Error("test report failingTests must be an array of strings");
+}
+
+const event = {
+  type: "submit_test_report",
+  passed: report.passed,
+  failed: report.failed,
+  skipped: report.skipped,
+  total: report.total,
+  summary: report.summary,
+  failingTests: report.failingTests,
+};
+if (report.coveragePercent !== undefined) event.coveragePercent = report.coveragePercent;
+
+const response = await fetch(
+  `${process.env.YGGDRASIL_API_URL.replace(/\/$/, "")}/internal/jobs/${process.env.JOB_ID}/events`,
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.YGGDRASIL_API_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(event),
+  },
+);
+if (!response.ok) throw new Error(`API rejected test report: ${response.status}`);
+NODE
+
+exit "$script_status"
