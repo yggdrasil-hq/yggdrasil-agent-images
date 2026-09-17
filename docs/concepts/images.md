@@ -11,7 +11,8 @@ see `skills.md` / `contract-extension.md` instead.
 agent-images/
 ├── base/                       common layer: Pi + yggdrasil-contract + models.json templating
 │   ├── Dockerfile
-│   └── entrypoint.sh
+│   ├── entrypoint.sh
+│   └── pi-with-extensions.mjs  runs Pi with any bundle the project opted into (ADR 025)
 ├── extensions/yggdrasil-contract/   the shared extension (see contract-extension.md)
 ├── models.json.template
 ├── spec_grill/Dockerfile        FROM base — project-init + feature-grill skills, no Playwright

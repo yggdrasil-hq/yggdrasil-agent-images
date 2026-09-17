@@ -22,6 +22,10 @@ RUN cd /root/.pi/agent/extensions/yggdrasil-contract && npm install --omit=dev
 
 COPY models.json.template /root/.pi/agent/models.json.template
 COPY base/entrypoint.sh /usr/local/bin/entrypoint.sh
+# ADR 025: runs Pi with any uploaded extensions the project opted into, after
+# installing them outside /workspace. Only invoked when PI_EXTENSIONS_BUNDLE is
+# set; otherwise entrypoint.sh execs Pi directly as it always did.
+COPY base/pi-with-extensions.mjs /usr/local/bin/pi-with-extensions.mjs
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 WORKDIR /workspace

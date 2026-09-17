@@ -215,4 +215,15 @@ fi
 # Without --extension, ask_user/submit_adr/etc. never reach the model's tool
 # list regardless of which model is configured (verified against a real
 # stuck run).
+#
+# ADR 025: when the project opted in to uploaded extensions, the Orchestrator
+# delivers them as PI_EXTENSIONS_BUNDLE and this hands off to the installer,
+# which writes them outside the workspace and execs Pi with the contract
+# extension first. Without a bundle the path below is byte-for-byte what it
+# was before the feature existed, so nothing changes for a project that has
+# not opted in.
+if [ -n "${PI_EXTENSIONS_BUNDLE:-}" ]; then
+  exec node /usr/local/bin/pi-with-extensions.mjs "$@"
+fi
+
 exec pi --mode rpc --extension /root/.pi/agent/extensions/yggdrasil-contract/src/index.ts "$@"

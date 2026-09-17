@@ -39,6 +39,25 @@ actually visible via `allowed-tools` — e.g. `feature_build`'s `implement`
 skill never sees `ask_user`, because that job kind must run unattended
 end-to-end.
 
+## Uploaded extensions and this contract
+
+An organization may upload its own extensions (ADR 025), and a project that
+opts in gets them loaded alongside this one — see
+`uploaded-extensions.md`. Two things about that are this doc's business:
+
+- **This extension is always loaded first and always present.**
+  `pi-with-extensions.mjs` passes the contract path before any uploaded one,
+  so the tools below are registered before uploaded code runs. It does not
+  prevent an uploaded extension from shadowing them, which is why the API
+  refuses a bundle that names any of them — a heuristic that catches the
+  realistic case, not a guarantee.
+- **The names in the table above are therefore reserved.** An upload that
+  mentions one as a string literal is rejected at upload time and again at
+  install time. The reason is the protocol, not naming hygiene: these tool
+  calls are how the Orchestrator decides a run started, ended, or was blocked,
+  and `terminate: true` on them is the authoritative "this run is over"
+  signal. Uploaded code must not be able to forge or re-define that.
+
 ## Open follow-ups
 
 - The exact event schema the Orchestrator consumes from these tool calls
