@@ -86,3 +86,23 @@ Playwright's Chromium install (several hundred MB). Splitting keeps
 `spec_grill` — the most frequent job kind — light, and keeps skills from being
 visible to job kinds they don't belong to. See ADR 004's "Alternatives
 considered" for the full reasoning.
+
+## Screen recording (`test_run`, ADR 029)
+
+`test_run` ships a Playwright test-runner config with video recording enabled,
+because `recordVideo` is a property of how a browser *context* is created and
+the runner creates one per test — no CLI flag can turn it on after the fact.
+That is also why `@playwright/test` is installed as a real dependency of
+`/opt/playwright` rather than being pulled ephemerally by `npx playwright
+install`: the config has to be able to import it, and the browser build must
+match the library build.
+
+The runner writes one video per test under a hashed per-test directory.
+`collect-recording.sh` collapses that to one stable path
+(`/workspace/.yggdrasil/recording.webm`), and `run-checks.sh` runs the checks
+and reports it. Both print **nothing** when no recording exists, deliberately:
+the skill must omit `recordingPath` rather than report a dead path, since a
+stored pointer that cannot be opened is worse than an absent one.
+
+Recording is best-effort end to end. `feature_build` ships Playwright too and
+may record, but nothing surfaces a build's recording yet.
