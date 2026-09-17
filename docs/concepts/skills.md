@@ -47,6 +47,13 @@ job kind actually needs — e.g. both spec_grill skills only see `ask_user` and
   the assumption note) if it's wrong.
 - **Don't create git branches.** The Orchestrator checks out the right branch
   or ref before the container's skill ever runs.
+- **The workspace may arrive mid-merge.** A `feature_build` workspace is
+  synced onto the tip of the base branch before the skill starts, and when the
+  two conflict the merge is left in place for the agent rather than failing the
+  run (`YGGDRASIL_MERGE_CONFLICTS=1`, plus
+  `/workspace/.yggdrasil/merge-conflicts.md`). Any skill handed a conflicted
+  workspace resolves it as part of its task, before doing its own work — see
+  `implement`'s step 1 and ADR 021.
 
 ## Editing a skill
 

@@ -15,7 +15,11 @@ don't block on it.
 
 - The Orchestrator has already cloned all linked repos and checked out the
   feature branch `yggdrasil/<feature-slug>-<id>` on the primary repo. Do not
-  create this branch yourself.
+  create this branch yourself. It starts at the tip of the base branch, so it
+  already contains everything merged before this run began — and it may carry
+  an earlier attempt's commits if this feature was built before.
+- The workspace may arrive **mid-merge, with conflicts already in place**
+  against the base branch (ADR 021). See step 1.
 - The approved ADR markdown for this run is available at
   `/workspace/.yggdrasil/adr.md`.
 
@@ -25,28 +29,47 @@ work around silently.)
 
 ## Steps
 
-1. Read `/workspace/.yggdrasil/adr.md` — this is your implementation contract.
-2. Read `docs/CONTEXT.md` and `docs/adr/` in the target repo for terminology
+1. **If the workspace arrives mid-merge, resolve that before anything else.**
+   When the base branch advanced after this feature branch was last built and
+   the two sets of changes conflict, the Orchestrator deliberately leaves the
+   merge in place instead of failing the run (ADR 021):
+   `YGGDRASIL_MERGE_CONFLICTS=1` is set, and
+   `/workspace/.yggdrasil/merge-conflicts.md` lists the conflicted files.
+   Resolving them is part of this task, not a repair of someone else's
+   mistake. Edit each file keeping both intents wherever they are compatible,
+   `git add` the resolved files, then `git commit` to complete the merge.
+   - Do **not** `git merge --abort` and do not leave the merge half-finished:
+     an in-progress merge makes this skill's later `git push` step meaningless.
+   - Do not drop the base branch's changes to make the conflict go away. A
+     resolution that silently reverts the other feature's work is worse than a
+     failed build, and a human still reviews the PR.
+   - If a conflict genuinely cannot be resolved without a decision only a human
+     can make, that is `request_action_item`, not a guess and not a failure
+     (see below).
+2. Read `/workspace/.yggdrasil/adr.md` — this is your implementation contract.
+3. Read `docs/CONTEXT.md` and `docs/adr/` in the target repo for terminology
    and conventions, same as the grill phase did.
-3. Implement the feature.
-4. Commit the ADR itself to `docs/adr/NNN-<slug>.md` on the feature branch,
+4. Implement the feature.
+5. Commit the ADR itself to `docs/adr/NNN-<slug>.md` on the feature branch,
    where `NNN` is the next sequential number after whatever already exists in
    the target repo's `docs/adr/` (zero-padded to 3 digits) and `<slug>` is a
    short kebab-case title from the ADR's own heading.
-5. If this image has Playwright available (it does — `feature_build` installs
+6. If this image has Playwright available (it does — `feature_build` installs
    it) and the change touches UI: start the app, drive the changed surface
    with Playwright, and confirm it behaves as the ADR describes before moving
    on. Don't skip this for UI-touching changes; do skip it for changes with no
    UI surface (pure backend/API/infra work).
-6. Push the branch and open a **draft** PR on the primary repo (`gh pr create
+7. Push the branch and open a **draft** PR on the primary repo (`gh pr create
    --draft`), with a description summarizing what was built and linking the
-   ADR.
-7. Call `submit_build_result` **exactly once**:
+   ADR. If you resolved conflicts in step 1, say so in the description and
+   name the files you resolved — that is the first thing a reviewer should
+   look at.
+8. Call `submit_build_result` **exactly once**:
    - `status: "success"` with `prUrl` set, once the draft PR is open.
    - `status: "failure"` with a `summary` explaining why, if you conclude the
      feature can't be completed as specified — don't leave the run hanging
      without calling this.
-8. This ends the run. Don't call any tool after `submit_build_result`.
+9. This ends the run. Don't call any tool after `submit_build_result`.
 
 ## When to request an action item instead of failing
 
@@ -69,7 +92,7 @@ as the terminal action instead. The four cases (ADR 015 item 8):
 Do NOT call `request_action_item` for:
 - A crash, error, or dead end — that's `submit_build_result status:"failure"`.
 - Anything the ADR's ambiguity lets you resolve with a reasonable judgment
-  call (step 3 above) — make the call and note it in the PR instead.
+  call (step 4 above) — make the call and note it in the PR instead.
 
 The distinction is: a human or another job must act before this build can
 possibly succeed. If it's just a hard implementation problem, that's a failure.

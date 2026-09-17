@@ -26,10 +26,16 @@ envsubst < /root/.pi/agent/models.json.template > /root/.pi/agent/models.json
 # feature_build only (ADR 010 item 3): FEATURE_BRANCH, if set, is checked
 # out on the primary repo right after cloning — the implement skill's own
 # documented assumption is that this is already done by the time it starts,
-# so it never runs `git checkout -b` itself. ADR_MARKDOWN, if set, is written
-# verbatim to /workspace/.yggdrasil/adr.md — the approved ADR the implement
-# skill treats as its implementation contract. Both are no-ops when absent
-# (spec_grill sets neither), exactly like TARGET_REPOS itself.
+# so it never runs `git checkout -b` itself. ADR 021 extends that: the branch
+# is started from the tip of the remote default branch rather than from
+# whatever commit the clone happened to land on, and a retry of a feature
+# whose branch was already pushed continues from that branch with the base
+# merged in — a conflict there is left in the working tree for the agent to
+# resolve instead of failing the job (see the conflict marker below).
+# ADR_MARKDOWN, if set, is written verbatim to /workspace/.yggdrasil/adr.md —
+# the approved ADR the implement skill treats as its implementation
+# contract. Both are no-ops when absent (spec_grill sets neither), exactly
+# like TARGET_REPOS itself.
 #
 # Bootstrap case: a project's very first project_init run happens *before*
 # any submodule has ever been wired (that wiring is itself project_init's
@@ -50,7 +56,7 @@ envsubst < /root/.pi/agent/models.json.template > /root/.pi/agent/models.json
 # afterwards (including the agent's own shell tool, via
 # `git config --global --list`) can push with it — appropriate since its
 # token is contents:read anyway and the skill must never write.
-# feature_build (ADR 010) is the opposite case: implement/SKILL.md's step 6
+# feature_build (ADR 010) is the opposite case: implement/SKILL.md's step 7
 # is `git push` + `gh pr create` *after* Pi starts, so removing the rewrite
 # here would silently break the one thing the job exists to do — the
 # removal below is skipped whenever FEATURE_BRANCH is set, which is exactly
@@ -126,7 +132,65 @@ NODE
     git -C /workspace checkout --detach "$FEATURE_REF"
     git -C /workspace submodule update --init --recursive
   elif [ -n "${FEATURE_BRANCH:-}" ]; then
-    git -C /workspace checkout -b "$FEATURE_BRANCH"
+    # ADR 021: sync the feature branch onto the latest base before Pi starts.
+    # Two features built in parallel both branch from the base; whichever
+    # merges second would otherwise open a PR that conflicts on arrival, and
+    # today that is only discovered at merge time. Starting from the tip of
+    # the remote default branch removes that for anything that merged before
+    # this build began.
+    #
+    # A failed FETCH is fatal, exactly like the clone above: the agent must
+    # not start on a workspace whose base we could not verify. A merge
+    # CONFLICT is not fatal — the conflicted tree is deliberately left in
+    # place for the agent to resolve (ADR 021).
+    git -C /workspace fetch origin --prune
+    base_ref="$(git -C /workspace symbolic-ref --quiet --short refs/remotes/origin/HEAD || echo origin/main)"
+
+    if git -C /workspace show-ref --verify --quiet "refs/remotes/origin/$FEATURE_BRANCH"; then
+      # Retry of a feature whose branch was already pushed: continue from it
+      # rather than silently restarting from the base. Restarting would throw
+      # away the earlier attempt's commits and leave the agent's later
+      # `git push` rejected as non-fast-forward.
+      git -C /workspace checkout -B "$FEATURE_BRANCH" "origin/$FEATURE_BRANCH"
+      git -C /workspace submodule update --init --recursive
+
+      if git -C /workspace merge --no-edit "$base_ref"; then
+        # The base may itself carry submodule-pointer changes.
+        git -C /workspace submodule update --init --recursive
+      else
+        conflicted="$(git -C /workspace diff --name-only --diff-filter=U)"
+        if [ -z "$conflicted" ]; then
+          # Not a content conflict — the merge failed for some other reason
+          # (an untracked file in the way, an unresolvable base ref, ...).
+          # That is not a state an agent should be handed, so this keeps the
+          # same fatal/not-fatal split as the clone check above.
+          echo "entrypoint: merging $base_ref into $FEATURE_BRANCH failed for a non-conflict reason" >&2
+          exit 1
+        fi
+
+        mkdir -p /workspace/.yggdrasil
+        {
+          printf '# Merge conflicts with %s\n\n' "$base_ref"
+          printf 'This workspace was left mid-merge on purpose (ADR 021). %s advanced\n' "$base_ref"
+          printf 'after this feature branch was last built, and the two sets of changes\n'
+          printf 'conflict. Resolve them before implementing anything.\n\n'
+          printf '## Conflicted files\n\n'
+          printf '%s\n' "$conflicted"
+          printf '\n## How to resolve\n\n'
+          printf '1. Edit each file above, keeping both intents wherever they are compatible.\n'
+          printf '2. `git add` every resolved file.\n'
+          printf '3. `git commit` to complete the merge (`--no-edit` is fine).\n'
+          printf '4. Then start on the ADR in `.yggdrasil/adr.md`.\n'
+        } > /workspace/.yggdrasil/merge-conflicts.md
+
+        # Also exported, so the state is discoverable without reading files.
+        export YGGDRASIL_MERGE_CONFLICTS=1
+      fi
+    else
+      # First build of this feature: start the branch at the latest base.
+      git -C /workspace checkout -b "$FEATURE_BRANCH" "$base_ref"
+      git -C /workspace submodule update --init --recursive
+    fi
   fi
   if [ -n "${ADR_MARKDOWN:-}" ]; then
     mkdir -p /workspace/.yggdrasil
