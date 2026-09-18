@@ -70,14 +70,32 @@ The Orchestrator's `SPEC_GRILL_IMAGE`/`FEATURE_BUILD_IMAGE`/`TEST_RUN_IMAGE`/
 hand (see `../../orchestrator/.env.example`) — CI publishes new tags but
 nothing yet updates those env vars automatically.
 
-### Open follow-up: registry auth for self-hosted installs
+### Registry auth for self-hosted installs
 
-GHCR packages default to **private** on first push. A self-hosted
-Orchestrator therefore needs a `read:packages`-scoped credential (a PAT or
-GitHub App token) wired in as a Kubernetes image pull secret to actually pull
-these images — that provisioning step (and whether to instead make the
-packages public, given they contain no project-specific secrets, only the
-shared agent runtime) is not yet designed.
+GHCR packages are **private on first push**, and visibility is per *package*, not
+per repository: as of this writing `test_run` refuses an anonymous pull while
+`spec_grill`, `feature_build`, `script_test_run`, `agentic_review` and
+`design_grill` allow one. Which ones need a credential is therefore a property of
+the registry at the moment of asking, not something to assume — a self-hosted
+Orchestrator asks the registry rather than guessing from the `ghcr.io` host
+(doing the latter would warn about five packages that do not need help, which is
+how a useful warning gets ignored).
+
+The fix is one of two things, and both are supported:
+
+- **Make the package public.** These images contain no project-specific secrets —
+only the shared agent runtime and skills — so this is a legitimate answer for a
+project that would rather not manage a credential. It is a per-package setting in
+the GitHub UI; nothing in this repo changes.
+- **Give the cluster a `read:packages`-scoped credential** (a PAT or GitHub App
+token) as a Kubernetes docker-config object, and reference it from the pods —
+the Orchestrator's `JOB_IMAGE_PULL_SECRET`, or the project namespace's `default`
+service account. `orchestrator/docs/overview/setup.md` has the commands.
+
+What is still not automated: nothing provisions that credential for you, and
+nothing flips a package's visibility. Both are one-time operator actions rather
+than things the suite can do on its own (it has no GHCR administration access),
+which is why the failure is reported with the remedy spelled out instead.
 
 ## Why per-kind images instead of one shared image
 
