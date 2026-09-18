@@ -6,7 +6,43 @@ set -eu
 # envsubst instead of relying on Pi to do it. MODEL_BASE_URL / MODEL_API_KEY /
 # MODEL_ID are injected by the Orchestrator as job-pod env vars, decrypted
 # server-side from the project's `project_secrets` row (ADR 004).
+#
+# MODEL_SESSION_ID is not a credential — it is the identifier a model gateway
+# in front of the provider attributes and groups traffic by (issue #37). The
+# gateway this product is deployed against rejects a request without
+# `x-opencode-session` outright ("Request is missing x-opencode-session and
+# cannot be routed efficiently"), which is why the header is emitted for every
+# provider request rather than gated behind an "are you behind a gateway"
+# setting: an unrecognised header is ignored by a provider that has no use for
+# it, so the safe default is to always send it.
+#
+# Pi sends `x-opencode-session` itself only for its own `opencode` providers, so
+# a project's custom provider needs it declared here. The value is the job id,
+# which makes the gateway's attribution per-run rather than per-project.
 envsubst < /root/.pi/agent/models.json.template > /root/.pi/agent/models.json
+
+# An *empty* header value is not the same as an absent one — it is a declared
+# header with nothing in it, which a gateway can reject and which means the
+# template's `headers` block has to survive only when there is a value to send.
+# Stripped here (rather than made conditional in the template) because
+# `envsubst` has no default-value syntax; a pod always has MODEL_SESSION_ID, so
+# this is the belt to the Orchestrator's braces.
+node <<'NODE'
+const fs = require("node:fs");
+
+const path = "/root/.pi/agent/models.json";
+const config = JSON.parse(fs.readFileSync(path, "utf8"));
+
+for (const provider of Object.values(config.providers ?? {})) {
+  if (!provider.headers) continue;
+  for (const [name, value] of Object.entries(provider.headers)) {
+    if (value === "" || value === undefined) delete provider.headers[name];
+  }
+  if (Object.keys(provider.headers).length === 0) delete provider.headers;
+}
+
+fs.writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
+NODE
 
 # Clone the primary repo (with its submodules) before Pi ever starts (ADR 006
 # item 6, reworked by ADR 008 items 8-10): a project's sub-repos are wired as
