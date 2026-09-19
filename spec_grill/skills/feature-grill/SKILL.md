@@ -59,6 +59,24 @@ decisions, exactly as `grill-with-docs` does against this meta repo's own
 3. For each question, propose a recommended answer and your reasoning, the
    same way `grill-with-docs` does — the user is choosing between options you
    frame, not starting from a blank page.
+
+   **Pass `options` whenever the answer is genuinely one of a few things you
+   already know** — the user picks from a control instead of typing, and each
+   option's `description` can carry the reasoning that would otherwise need its
+   own paragraph. `header` is a short label ("Database"); `question` is the
+   sentence asking. Set `multiSelect: true` only when more than one can be true
+   at once.
+
+   **Ask as prose when the question is open-ended.** Do not reach for `options`
+   to look tidy: "what problem does this solve?", "what should this explicitly
+   not do?" and "who is this for?" have no closed list, and offering one hides
+   the answers you did not think of. A useful test — if you would be genuinely
+   unhappy with an answer that came from outside your list, the list was a
+   suggestion, not a set of options, so ask the question plainly instead.
+
+   Your recommendation still belongs in the question text (or a
+   `recommended`-sounding option label plus its description), because the
+   control presents choices without arguing for one.
 4. Walk down the design tree one branch at a time. Don't move to the next
    question until the current one is resolved.
 5. If a question is answerable by reading the codebase instead of asking,

@@ -42,6 +42,15 @@ a blank page. Walk down this list one branch at a time; don't move on until
 the current question is resolved. If a question is answerable by reading the
 codebase instead of asking, read the codebase.
 
+**Pass `options` when the answer is one of a few things you already know**
+(runtime, language, database, hosting, monorepo-or-not — most of this
+interview), so the user picks instead of typing, with `header` as the short
+label. A monorepo question is usually two options, not a sentence to fill in.
+**Leave `options` off when the question is open-ended** — "what does this
+project do?" has no list, and a list would hide the answers you did not think
+of. Your recommendation goes in the question text, since a control presents
+choices without arguing for one.
+
 1. **What does the project do, and what does it achieve?** The actual
    product/purpose — not a restatement of the tech stack.
 2. **What tech stack is used to build it?** Languages, frameworks, datastores,
