@@ -39,6 +39,15 @@ export default function (pi: ExtensionAPI) {
       "think of. Only offer a list when you would be content with every answer " +
       "coming from it.\n" +
       "\n" +
+      "**Do not add an \"Other\" / \"Something else\" option yourself.** The chat " +
+      "has a free-text box under every question, and the card says so — so the " +
+      "escape hatch exists without you listing it, and listing it makes things " +
+      "worse: a pick submits its *label as the answer*, so \"Other\" arrives as " +
+      "the literal word and you learn nothing. If the honest framing is \"usually " +
+      "one of these three, but it could be something I have not thought of\", " +
+      "that is the prose case above — ask it plainly, or widen the list until " +
+      "every option is one you would act on.\n" +
+      "\n" +
       "Do not answer the question yourself, and do not proceed on an assumption " +
       "while you wait: this call is blocking, and a guess recorded here becomes an " +
       "approved decision the user never made.",
@@ -334,7 +343,33 @@ export default function (pi: ExtensionAPI) {
       "Call exactly once, as the last action of an agentic_review run. This " +
       "is an internal Yggdrasil verdict, never a real GitHub PR review " +
       "(\u201capproved\u201d advances the feature to Manual Review; " +
-      "\u201cchanges_requested\u201d sends it back to Implementation). Ends the session.",
+      "\u201cchanges_requested\u201d sends it back to Implementation). Ends the session.\n" +
+      "\n" +
+      "**Also populate `findings`, one entry per issue you found**, so the " +
+      "reviewer sees *where* each problem is instead of reading an essay. " +
+      "`comment` stays the summary; the list is the detail, and the two are " +
+      "shown as one (a list when findings exist, the prose otherwise) — so do " +
+      "not repeat yourself between them.\n" +
+      "\n" +
+      "Set `blocking` on every finding, explicitly. On a `changes_requested` " +
+      "verdict the blocking ones are what Implementation is being sent back " +
+      "for; on `approved`, list non-blocking suggestions with " +
+      "`blocking: false` (holding a feature for a suggestion contradicts the " +
+      "verdict you are submitting). An **omitted** `blocking` means blocking — " +
+      "the choice is deliberately fail-closed, so leaving it off by accident " +
+      "reports a suggestion as something that stopped the feature.\n" +
+      "\n" +
+      "`path` and `line` are optional and a finding may carry neither: a " +
+      "remark about the change as a whole is a legitimate finding, and so is " +
+      "one about a file the diff does not touch (a requirement implemented " +
+      "nowhere). Do not invent a location to fill the field.\n" +
+      "\n" +
+      "Omit `findings` entirely only when you genuinely have nothing to list — " +
+      "the difference between omitting it and passing an empty list is real " +
+      "and preserved: omitting says \u201cI recorded no per-location findings\u201d and " +
+      "an empty list says \u201cI looked and there were none\u201d. Prefer the empty " +
+      "list when you did look, because only that state makes a \u201c0 blocking " +
+      "issues\u201d claim true.",
     parameters: Type.Object({
       verdict: Type.Union([Type.Literal("approved"), Type.Literal("changes_requested")]),
       comment: Type.String({
@@ -342,10 +377,106 @@ export default function (pi: ExtensionAPI) {
           "A concise comment describing the findings. On changes_requested, describe " +
           "each blocking issue so Implementation knows what to fix.",
       }),
+      /*
+       * Issue #73: the structured half of a review, so a reviewer can see where
+       * the problems are without reading a paragraph.
+       *
+       * **`blocking` is optional here on purpose, not by oversight.** The API
+       * defaults an absent flag to `true` at ingest
+       * (`api/src/jobs/internal-routes.ts`, `finding.blocking ?? true`) and
+       * documents why: an omitted flag means "these are the blockers", and
+       * defaulting to false would let a review pass its gate while displaying the
+       * findings that should stop it. Two consequences make optional the right
+       * shape rather than a required boolean:
+       *
+       * 1. A field with a documented server-side default is *optional by design*.
+       *    Requiring it here would make that default unreachable from the only
+       *    producer that exists, which is how a carefully-reasoned default
+       *    silently rots.
+       * 2. This call is terminal. A schema rejection means the tool never runs,
+       *    so `terminate` never fires and the verdict has not been submitted; the
+       *    run ends without one, which ADR 006 treats as a failure. That is a
+       *    worse outcome than a finding being labelled blocking when it was not,
+       *    and `blocking` gates nothing — the transition keys on `verdict` alone
+       *    — so an omission costs display accuracy and cannot advance a broken
+       *    feature.
+       *
+       * The description therefore asks for it *explicitly* instead, which is the
+       * instruction the model actually follows.
+       */
+      findings: Type.Optional(
+        Type.Array(
+          Type.Object({
+            path: Type.Optional(
+              Type.String({
+                maxLength: 512,
+                description:
+                  "Repository-relative path the finding is about. Omit when the " +
+                  "finding is about the change as a whole.",
+              }),
+            ),
+            /*
+             * `Type.Integer`, unlike the `Type.Number` the test-report tool uses
+             * for its counts. The API requires an integer here
+             * (`z.number().int().positive()`), so a fractional line would be
+             * accepted by the schema and then rejected at ingest — aborting the
+             * event write on a path where that is silent and sticky (#86). The
+             * strict shape belongs at the model, which can correct it.
+             */
+            line: Type.Optional(
+              Type.Integer({
+                minimum: 1,
+                description:
+                  "1-based line number within `path`, when the finding is about a " +
+                  "specific line.",
+              }),
+            ),
+            body: Type.String({
+              minLength: 1,
+              maxLength: 4000,
+              description:
+                "What is wrong, and what it should be instead — concrete enough " +
+                "to act on without re-deriving it.",
+            }),
+            blocking: Type.Optional(
+              Type.Boolean({
+                description:
+                  "Whether this must be fixed before the ADR can be called " +
+                  "implemented. Set it on every finding; omitting it is treated " +
+                  "as blocking.",
+              }),
+            ),
+          }),
+          {
+            /*
+             * Bounds mirror the API's exactly (`api/src/jobs/internal-routes.ts`:
+             * `.max(50)`, `body` 1..4000, `path` ≤512). They live here as well as
+             * there because a *tool-schema* rejection is recoverable — the tool
+             * does not run, so nothing terminates and the model sees the error and
+             * resubmits within the same turn — whereas an API rejection on this
+             * path aborts the event write, and #86 showed what that looks like:
+             * a completed job, a feature stuck, and nothing user-visible saying
+             * why. Same reasoning as `options`'s `minItems: 1` just above.
+             */
+            description:
+              "One entry per issue found, at most 50 — more than that is a " +
+              "runaway rather than a review. Omit the whole array only when you " +
+              "recorded no per-location findings.",
+            maxItems: 50,
+          },
+        ),
+      ),
     }),
     async execute(_toolCallId, params) {
       return {
         content: [{ type: "text", text: `Review: ${params.verdict}` }],
+        // `...params` already carries `findings` when the model sent it and omits
+        // the key entirely when it did not — which is the distinction the API
+        // stores as `null` (prose) versus `[]` (structured, none). Nothing is
+        // defaulted here, deliberately: materialising an empty array for an
+        // omitted list would turn every prose review into a false "no findings"
+        // claim, and materialising `blocking` would pre-empt the server's own
+        // documented default.
         details: { kind: "submit_review", ...params },
         terminate: true,
       };
