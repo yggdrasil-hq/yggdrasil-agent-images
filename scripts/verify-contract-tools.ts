@@ -505,9 +505,17 @@ if (curated && apiclientSrc && apiRoutes) {
    * notice when it should go green.
    */
   const KNOWN_DROPS: Record<string, string> = {
-    "submit_review.findings":
-      "yggdrasil-hq/yggdrasil-core#88 — the Orchestrator carries no `findings` " +
-      "through rpc.Translate or jobEventRequest; the tool and skill halves are done",
+    /*
+     * Empty, and that is the intended steady state: every field the tools emit now
+     * reaches all four hops. The last entry was `submit_review.findings` (#88),
+     * deleted when yggdrasil-orchestrator#15 carried it through — the stale-entry
+     * rule below is what demanded the deletion rather than letting the ledger
+     * outlive the fix.
+     *
+     * Keep it empty until a real drop exists. An entry here is an admission that a
+     * shipped feature is inert, so it belongs to a filed issue, not to a
+     * precaution.
+     */
   };
 
   const reportKeys = drops.map((drop) => drop.slice(0, drop.indexOf(" is not forwarded")));
