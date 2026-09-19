@@ -22,16 +22,123 @@ export default function (pi: ExtensionAPI) {
       "their reply. Call this once per question, never bundle multiple " +
       "questions into one call. Ends the current turn: the Orchestrator " +
       "relays `question` to the user over the API/WebSocket and feeds their " +
-      "reply back as the next prompt.",
+      "reply back as the next prompt.\n" +
+      "\n" +
+      "**Pass `options` when the answer is a choice among a few things you " +
+      "already know** — the user then picks instead of typing, and each option's " +
+      "`description` explains it without a follow-up round trip. Passing " +
+      "`options` makes `header` required: it is the short label above the " +
+      "control (\"Database\"), where `question` is the sentence asking " +
+      "(\"Which database should the API use?\"). Set `multiSelect: true` only " +
+      "when several answers can be true at once.\n" +
+      "\n" +
+      "**Ask as prose — omit `options` — for anything open-ended** (\"what " +
+      "problem does this solve?\", \"what should it NOT do?\"). The two modes " +
+      "coexist deliberately: offering a closed list for an open question is " +
+      "worse than asking it plainly, because it hides the options you did not " +
+      "think of. Only offer a list when you would be content with every answer " +
+      "coming from it.\n" +
+      "\n" +
+      "Do not answer the question yourself, and do not proceed on an assumption " +
+      "while you wait: this call is blocking, and a guess recorded here becomes an " +
+      "approved decision the user never made.",
     parameters: Type.Object({
       question: Type.String({
         description: "The single question to ask the user.",
       }),
+      header: Type.Optional(
+        Type.String({
+          description:
+            "Short label naming what is being chosen, shown above the choices " +
+            "(e.g. \"Database\"). Required when `options` is given.",
+        }),
+      ),
+      multiSelect: Type.Optional(
+        Type.Boolean({
+          description:
+            "True to let the user pick more than one option; false or omitted " +
+            "for a single choice.",
+        }),
+      ),
+      options: Type.Optional(
+        Type.Array(
+          Type.Object({
+            label: Type.String({
+              description: "What the user picks, in their words (e.g. \"PostgreSQL\").",
+            }),
+            description: Type.Optional(
+              Type.String({
+                description:
+                  "One line on what this choice means, when the label alone " +
+                  "does not say (e.g. \"Simplest for local development\").",
+              }),
+            ),
+          }),
+          {
+            description:
+              "The choices, when the answer is a choice. Omit entirely for a " +
+              "free-text question.",
+            minItems: 1,
+          },
+        ),
+      ),
     }),
     async execute(_toolCallId, params) {
+      /*
+       * The one malformed shape a model actually produces: real choices with no
+       * `header`. The API rejects it (`jobs/internal-routes.ts`), and a rejected
+       * event post would be the worst outcome available here — the turn has
+       * already ended, so the run would sit waiting for a reply to a question the
+       * transcript never received.
+       *
+       * So the *tool* guarantees a valid event instead, by degrading to the prose
+       * question it already knows how to ask: the choices are folded into the
+       * question text so nothing the agent learned is lost, and the user answers
+       * by typing. Nothing is invented and nothing stalls — which matters more
+       * here than surfacing the mistake, because the person on the other end can
+       * still answer.
+       */
+      const options = params.options ?? [];
+      const structured = options.length > 0 && Boolean(params.header);
+
+      if (structured) {
+        return {
+          content: [
+            {
+              type: "text",
+              text:
+                `${params.header}: ${params.question} ` +
+                `(${options.map((option) => option.label).join(", ")})`,
+            },
+          ],
+          details: {
+            kind: "ask_user",
+            question: params.question,
+            header: params.header,
+            // Absent resolves to false rather than staying undefined, so the
+            // renderer never has to decide what a missing flag means.
+            multiSelect: params.multiSelect ?? false,
+            options,
+          },
+          terminate: true,
+        };
+      }
+
+      const degraded =
+        options.length > 0
+          ? `${params.question}\n\nOptions you may pick from (reply with one) or answer freely:\n` +
+            options
+              .map((option) =>
+                option.description
+                  ? `- ${option.label} — ${option.description}`
+                  : `- ${option.label}`,
+              )
+              .join("\n")
+          : params.question;
+
       return {
-        content: [{ type: "text", text: params.question }],
-        details: { kind: "ask_user", question: params.question },
+        content: [{ type: "text", text: degraded }],
+        details: { kind: "ask_user", question: degraded },
         terminate: true,
       };
     },

@@ -24,7 +24,14 @@ continues.
 
 1. Inspect the existing `designs/<slug>/` files if the folder already exists.
 2. Ask one focused question at a time with `ask_user` when the brief leaves a
-   material interaction or visual decision unresolved.
+   material interaction or visual decision unresolved. **Pass `options` when the
+   decision is genuinely a choice** — layout, navigation pattern, light/dark, a
+   named component library — and the user picks rather than describing it in
+   prose; `header` is the short label and each option's `description` can say
+   what it commits to. Keep `multiSelect: true` off unless several can hold at
+   once. **Leave `options` off for anything open-ended** — "what should this
+   screen make someone feel?" cannot be answered from a list, and offering one
+   narrows the design to the options you happened to think of.
 3. Edit the mockup, then read every file under `designs/<slug>/` and call
    `update_design_preview` with the complete repository path-to-content map
    (for example, `designs/checkout/page.html`). The snapshot must include all
