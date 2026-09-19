@@ -47,11 +47,34 @@ unimplemented?
    - **`approved`** — every ADR requirement is implemented. Note non-blocking
      suggestions for the human reviewer, but do not hold them.
    - **`changes_requested`** — at least one ADR requirement is not correctly
-    implemented. In `comment`, describe each blocking issue concretely
+     implemented. In `comment`, describe each blocking issue concretely
      (file/location + what's wrong + what the ADR requires) so
      Implementation knows exactly what to fix.
-5. Call `submit_review` **exactly once** with your `verdict` and `comment`.
-6. This ends the run. Don't call any tool after `submit_review`.
+5. Populate **`findings`** on the `submit_review` call — one entry per issue
+   you identified, so the reviewer can see *where* each problem is rather than
+   reading it out of a paragraph. `path`/`line` point at the location when
+   there is one; `body` says what is wrong and what it should be instead.
+
+   Set **`blocking` on every finding**. A `changes_requested` verdict is
+   entirely about which findings are blocking — those are what Implementation
+   is sent back for — so leaving the flag off reports a suggestion as
+   something that stopped the feature (the default when omitted is
+   *blocking*, deliberately: a review must not appear to pass while displaying
+   the findings that should have stopped it). On `approved`, the findings are
+   suggestions and each one should say `blocking: false`, because a blocker
+   listed next to an `approved` verdict contradicts itself.
+
+   Two things not to do:
+   - **Do not invent a location** to fill `path`. A finding about the change as
+     a whole, or about a requirement implemented *nowhere* (so no file in the
+     diff is the place), legitimately carries neither `path` nor `line`.
+   - **Do not repeat the list in `comment`.** The panel shows the structured
+     list when there are findings and falls back to your prose otherwise, so
+     duplicating them renders the same issue twice. `comment` is the summary;
+     `findings` is the detail.
+6. Call `submit_review` **exactly once** with your `verdict`, `comment` and
+   `findings`.
+7. This ends the run. Don't call any tool after `submit_review`.
 
 ## On infra trouble
 

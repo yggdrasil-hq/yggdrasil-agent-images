@@ -23,7 +23,9 @@ every job kind ends its interaction/turns through an explicit tool call
 | `report_test_step(name, status, details?, screenshotPath?)` | `test_run` | No — called once per subtask |
 | `submit_test_report(passed, failed, summary, recordingPath?)` | `test_run` | Yes |
 | ↑ `recordingPath` (ADR 029) must name a file that actually exists — the Orchestrator reads exactly that path out of the pod before deleting it. Omit it rather than guessing: an absent recording renders as "not recorded", whereas a path resolving to nothing stores a pointer that can never be opened. See `test_run/skills/run-tests/SKILL.md`. | | |
-| `submit_review(verdict, comment)` | `agentic_review` | Yes — the internal Agentic Review verdict (ADR 015 items 14-16), never a real GitHub PR review. |
+| `submit_review(verdict, comment, findings?)` | `agentic_review` | Yes — the internal Agentic Review verdict (ADR 015 items 14-16), never a real GitHub PR review. |
+| ↑ `findings` (issue #73) is the per-location half of a review: `{ path?, line?, body, blocking? }`, at most 50. **Omit the array for a prose review and pass `[]` when you looked and found none** — the API stores those as `null` and `[]` respectively, and only the second makes "0 blocking issues" a true statement. `blocking` is deliberately fail-closed at ingest (an omitted flag means *blocking*), so set it explicitly on every finding. The bounds mirror the API's (`body` ≤4000, `path` ≤512) so an oversize finding is refused by the model's own schema rather than aborting the event write. | | |
+| ↑ **`findings` does not reach the API yet** — the Orchestrator carries no such field through `rpc.Translate` or its request body, so a review's findings are emitted and discarded. Tracked as `yggdrasil-hq/yggdrasil-core#88`; the tool and skill halves are done. `scripts/verify-contract-tools.ts` reports this as a `KNOWN` gap and fails if a *new* field is dropped the same way. | | |
 | `update_design_preview(snapshot)` | `design_grill` | No — ends the current turn so the Web preview can refresh. |
 | `submit_design(snapshot, prUrl?, summary)` | `design_grill` | Yes — finalizes the design session. |
 
