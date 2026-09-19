@@ -514,8 +514,39 @@ if (curated && apiclientSrc && apiRoutes) {
   const newDrops = drops.filter((drop) => !(drop.slice(0, drop.indexOf(" is not forwarded")) in KNOWN_DROPS));
   const staleEntries = Object.keys(KNOWN_DROPS).filter((key) => !reportKeys.includes(key));
 
-  if (newDrops.length === 0 && staleEntries.length === 0) {
+  /*
+   * The label has to distinguish two different facts, because the old one lied.
+   *
+   * `check("every emitted field is forwarded at all four hops", true)` used to run
+   * whenever there were no *new* drops and no stale ledger entries — which is also
+   * the state where **known** drops exist. Against the unmodified sibling repos
+   * that printed:
+   *
+   *   PASS  every emitted field is forwarded at all four hops
+   *   KNOWN submit_review.findings — the Orchestrator carries no `findings` …
+   *
+   * Two adjacent lines that contradict each other, and the PASS is the one a
+   * reader scans for. `findings` is demonstrably not forwarded — that is what the
+   * KNOWN line says, and `grep -rn findings orchestrator/` returns nothing — so the
+   * label asserted the opposite of the truth about a field the same run had just
+   * reported as inert.
+   *
+   * This is the failure mode the harness exists to catch, occurring inside the
+   * harness: a check whose *name* overstates what it proves. Naming the two states
+   * separately costs nothing and removes the contradiction.
+   */
+  if (drops.length === 0) {
     check("every emitted field is forwarded at all four hops", true);
+  } else if (newDrops.length === 0 && staleEntries.length === 0) {
+    // Not "forwarded": every drop is a known one. Say exactly that, and point at
+    // the KNOWN lines printed below rather than letting a bare PASS imply the
+    // fields arrive.
+    const n = drops.length;
+    check(
+      `${n} dropped field${n === 1 ? " is" : "s are"} accounted for by the known-gap ledger ` +
+        "(listed as KNOWN below — not forwarded)",
+      true,
+    );
   }
 
   for (const key of reportKeys) {
